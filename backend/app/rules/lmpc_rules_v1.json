@@ -1,0 +1,110 @@
+{
+  "rulepack_version": "LMPC-2011/v1.0.0",
+  "name": "Legal Metrology (Packaged Commodities) Rules, 2011",
+  "effective_date": "2011-03-01",
+  "rules": [
+    {
+      "rule_id": "LM-6-1-A-01",
+      "clause": "Rule 6(1)(a)",
+      "description": "Name and address of the manufacturer, packer or importer on retail package.",
+      "applicability": ["Retail store", "Warehouse", "E-commerce"],
+      "validation": "presence_check",
+      "field": "manufacturer",
+      "severity": "critical",
+      "source": "Legal Metrology (Packaged Commodities) Rules 2011, GSR 385(E)",
+      "source_url": "https://consumeraffairs.nic.in/laws-and-regulations/legal-metrology-act-2009",
+      "effective_date": "2016-01-01",
+      "version": "1.0.0"
+    },
+    {
+      "rule_id": "LM-6-1-C-01",
+      "clause": "Rule 6(1)(c)",
+      "description": "Net quantity in standard units (g, kg, ml, l, N).",
+      "applicability": ["Retail store", "Warehouse", "E-commerce"],
+      "validation": "net_quantity_check",
+      "field": "net_quantity",
+      "severity": "critical",
+      "source": "Legal Metrology (Packaged Commodities) Rules 2011, Rule 6(1)(c)",
+      "source_url": "https://consumeraffairs.nic.in/laws-and-regulations/legal-metrology-act-2009",
+      "effective_date": "2011-03-01",
+      "version": "1.0.0"
+    },
+    {
+      "rule_id": "LM-6-1-E-01",
+      "clause": "Rule 6(1)(e)",
+      "description": "Retail sale price (MRP inclusive of all taxes).",
+      "applicability": ["Retail store", "Warehouse", "E-commerce"],
+      "validation": "mrp_check",
+      "field": "mrp",
+      "severity": "major",
+      "source": "Legal Metrology (Packaged Commodities) Rules 2011, Rule 6(1)(e)",
+      "source_url": "https://consumeraffairs.nic.in/laws-and-regulations/legal-metrology-act-2009",
+      "effective_date": "2011-03-01",
+      "version": "1.0.0"
+    },
+    {
+      "rule_id": "LM-6-1-D-01",
+      "clause": "Rule 6(1)(d)",
+      "description": "Month and year of manufacture, packing or import.",
+      "applicability": ["Retail store", "Warehouse"],
+      "validation": "month_year_check",
+      "field": "month_year",
+      "severity": "major",
+      "source": "Legal Metrology (Packaged Commodities) Rules 2011, Rule 6(1)(d)",
+      "source_url": "https://consumeraffairs.nic.in/laws-and-regulations/legal-metrology-act-2009",
+      "effective_date": "2011-03-01",
+      "version": "1.0.0"
+    },
+    {
+      "rule_id": "LM-6-2-01",
+      "clause": "Rule 6(2)",
+      "description": "Consumer care details including name, address, phone or email.",
+      "applicability": ["Retail store", "Warehouse", "E-commerce"],
+      "validation": "consumer_care_check",
+      "field": "consumer_care",
+      "severity": "major",
+      "source": "Legal Metrology (Packaged Commodities) Rules 2011, Rule 6(2)",
+      "source_url": "https://consumeraffairs.nic.in/laws-and-regulations/legal-metrology-act-2009",
+      "effective_date": "2011-03-01",
+      "version": "1.0.0"
+    },
+    {
+      "rule_id": "LM-7-2-01",
+      "clause": "Rule 7(2) Table I & II",
+      "description": "Minimum height of net quantity numerals based on package weight or volume.",
+      "applicability": ["Retail store", "Warehouse"],
+      "validation": "calibrated_height_check",
+      "field": "net_quantity_height",
+      "severity": "critical",
+      "source": "Legal Metrology (Packaged Commodities) Rules 2011, Rule 7(2) Table I",
+      "source_url": "https://consumeraffairs.nic.in/laws-and-regulations/legal-metrology-act-2009",
+      "effective_date": "2011-03-01",
+      "version": "1.0.0"
+    },
+    {
+      "rule_id": "LM-6-1-AA-01",
+      "clause": "Rule 6(1)(aa)",
+      "description": "Country of origin for imported packages.",
+      "applicability": ["Retail store", "Warehouse", "E-commerce"],
+      "validation": "country_of_origin_check",
+      "field": "country_of_origin",
+      "severity": "major",
+      "source": "Legal Metrology (Packaged Commodities) Rules 2011, Rule 6(1)(aa)",
+      "source_url": "https://consumeraffairs.nic.in/laws-and-regulations/legal-metrology-act-2009",
+      "effective_date": "2020-10-01",
+      "version": "1.0.0"
+    }
+  ],
+  "rule7_table_i": {
+    "normal": [
+      {"max_qty_g_ml": 200, "min_height_mm": 1.0},
+      {"max_qty_g_ml": 500, "min_height_mm": 2.0},
+      {"max_qty_g_ml": null, "min_height_mm": 4.0}
+    ],
+    "embossed": [
+      {"max_qty_g_ml": 200, "min_height_mm": 2.0},
+      {"max_qty_g_ml": 500, "min_height_mm": 4.0},
+      {"max_qty_g_ml": null, "min_height_mm": 6.0}
+    ]
+  }
+}

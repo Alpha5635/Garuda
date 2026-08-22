@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Legal Metrology Inspection Report - {{ inspection.inspection_number }}</title>
+    <style>
+        body { font-family: Helvetica, Arial, sans-serif; font-size: 12px; color: #333; line-height: 1.5; margin: 20px; }
+        .header { text-align: center; border-bottom: 2px solid #003366; padding-bottom: 10px; margin-bottom: 20px; }
+        .header h1 { font-size: 18px; color: #003366; margin: 0; }
+        .header h2 { font-size: 14px; color: #666; margin: 5px 0 0 0; }
+        .section-title { font-size: 14px; color: #003366; border-bottom: 1px solid #ccc; padding-bottom: 3px; margin-top: 20px; margin-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+        th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; }
+        th { background-color: #f2f2f2; font-weight: bold; }
+        .status-badge { display: inline-block; padding: 3px 8px; border-radius: 3px; font-weight: bold; color: white; }
+        .status-compliant { background-color: #28a745; }
+        .status-violation { background-color: #dc3545; }
+        .status-review { background-color: #ffc107; color: black; }
+        .footer { margin-top: 30px; border-top: 1px solid #ddd; padding-top: 10px; font-size: 10px; color: #777; text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>DEPARTMENT OF CONSUMER AFFAIRS, GOVERNMENT OF INDIA</h1>
+        <h2>LEGAL METROLOGY COMPLIANCE INSPECTION REPORT</h2>
+    </div>
+
+    <div class="section-title">Inspection Summary</div>
+    <table>
+        <tr><th>Inspection Number</th><td>{{ inspection.inspection_number }}</td><th>Date</th><td>{{ inspection.created_at }}</td></tr>
+        <tr><th>Product Name</th><td>{{ inspection.product_name or 'N/A' }}</td><th>Brand Name</th><td>{{ inspection.brand_name or 'N/A' }}</td></tr>
+        <tr><th>Channel</th><td>{{ inspection.channel or 'Retail store' }}</td><th>Officer ID</th><td>{{ inspection.officer_id }}</td></tr>
+        <tr><th>Overall Status</th><td><span class="status-badge status-{{ inspection.status }}">{{ inspection.status | upper }}</span></td><th>Evidence SHA-256</th><td>{{ image_hash or 'N/A' }}</td></tr>
+    </table>
+
+    <div class="section-title">Rule Engine Evaluation Results (LMPC 2011)</div>
+    <table>
+        <thead>
+            <tr>
+                <th>Rule ID</th>
+                <th>Clause</th>
+                <th>Result</th>
+                <th>Severity</th>
+                <th>Explanation</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for res in rule_evaluations %}
+            <tr>
+                <td>{{ res.rule_id }}</td>
+                <td>{{ res.clause }}</td>
+                <td><strong>{{ res.result | upper }}</strong></td>
+                <td>{{ res.severity | upper }}</td>
+                <td>{{ res.explanation }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="section-title">Extracted Declarations</div>
+    <table>
+        <thead>
+            <tr>
+                <th>Field Name</th>
+                <th>Raw OCR Text</th>
+                <th>Normalized Value</th>
+                <th>Confidence</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for field in normalized_fields %}
+            <tr>
+                <td>{{ field.field_name }}</td>
+                <td>{{ field.raw_value }}</td>
+                <td><strong>{{ field.normalized_value or 'N/A' }}</strong></td>
+                <td>{{ (field.confidence * 100) | round(1) }}%</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="footer">
+        <p>Report Hash (SHA-256): {{ report_hash }} | Generated automatically by LabelSetu Verification Platform</p>
+        <p>This report contains statutory findings compiled under the Legal Metrology Act, 2009 and LMPC Rules, 2011.</p>
+    </div>
+</body>
+</html>
