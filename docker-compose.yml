@@ -1,37 +1,76 @@
-version: '3.8'
-
 services:
   postgres:
-    image: postgres:16-alpine
-    container_name: garuda-postgres
+    image: postgis/postgis:16-3.4
+    container_name: labelsetu-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-garuda_db}
+      POSTGRES_DB: ${POSTGRES_DB:-labelsetu}
+      POSTGRES_USER: ${POSTGRES_USER:-labelsetu_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-labelsetu_secure_pass_2026}
+      PGDATA: /var/lib/postgresql/data/pgdata
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - garuda_pgdata:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-garuda_db}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-labelsetu_admin} -d ${POSTGRES_DB:-labelsetu}"]
       interval: 5s
       timeout: 5s
       retries: 5
 
-  # Optional database management GUI (accessible at http://localhost:5050)
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: garuda-pgadmin
+  minio:
+    image: minio/minio:RELEASE.2024-05-28T17-19-04Z
+    container_name: labelsetu-minio
     restart: unless-stopped
+    command: server /data --console-address ":9001"
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@garuda.local
-      PGADMIN_DEFAULT_PASSWORD: admin
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin_secret_2026}
     ports:
-      - "5050:80"
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: labelsetu-minio-init
     depends_on:
-      - postgres
+      minio:
+        condition: service_started
+    entrypoint: >
+      /bin/sh -c "
+      sleep 2;
+      mc alias set local http://minio:9000 $${MINIO_ROOT_USER:-minioadmin} $${MINIO_ROOT_PASSWORD:-minioadmin_secret_2026};
+      mc mb --ignore-existing local/labelsetu-evidence;
+      mc mb --ignore-existing local/labelsetu-reports;
+      mc mb --ignore-existing local/labelsetu-snapshots;
+      mc anonymous set download local/labelsetu-reports;
+      echo 'MinIO buckets initialized successfully.';
+      exit 0;
+      "
+    restart: "no"
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: labelsetu-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
 volumes:
-  garuda_pgdata:
-    driver: local
+  postgres_data:
+  minio_data:
+  redis_data:
