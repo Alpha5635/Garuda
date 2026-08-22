@@ -1,0 +1,98 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-primary: #0F172A;
+    --color-secondary: #1E3A8A;
+    --color-pass: #059669;
+    --color-warning: #D97706;
+    --color-violation: #DC2626;
+    --color-info: #2563EB;
+  }
+
+  body {
+    @apply bg-[#F8FAFC] text-slate-800 font-sans antialiased;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11', 'tnum';
+  }
+
+  /* Government-grade sharp typography */
+  h1, h2, h3, h4, h5, h6 {
+    @apply tracking-tight font-semibold text-slate-900;
+  }
+}
+
+/* Millimeter Inspection Grid Pattern */
+.bg-mm-grid {
+  background-size: 20px 20px;
+  background-image: 
+    linear-gradient(to right, rgba(203, 213, 225, 0.35) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(203, 213, 225, 0.35) 1px, transparent 1px);
+}
+
+.bg-mm-grid-dense {
+  background-size: 5px 5px;
+  background-image: 
+    linear-gradient(to right, rgba(148, 163, 184, 0.2) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(148, 163, 184, 0.2) 1px, transparent 1px);
+}
+
+/* Scanning Reticle Animations */
+@keyframes scanline {
+  0% {
+    transform: translateY(0%);
+    opacity: 0.8;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100%);
+    opacity: 0.8;
+  }
+}
+
+.animate-scanline {
+  animation: scanline 3s cubic-bezier(0.4, 0, 0.6, 1) infinite alternate;
+}
+
+/* Custom Scrollbar for Government Tables & Sidebars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #F1F5F9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* Quiet Zone Collision Hatching */
+.quiet-zone-hazard {
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(220, 38, 38, 0.15),
+    rgba(220, 38, 38, 0.15) 6px,
+    rgba(220, 38, 38, 0.05) 6px,
+    rgba(220, 38, 38, 0.05) 12px
+  );
+}
+
+.safe-zone-hatch {
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(5, 150, 105, 0.1),
+    rgba(5, 150, 105, 0.1) 6px,
+    rgba(5, 150, 105, 0.02) 6px,
+    rgba(5, 150, 105, 0.02) 12px
+  );
+}
