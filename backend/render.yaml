@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: labelsetu-backend
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    plan: free
+    region: singapore
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: labelsetu-db
+          property: connectionString
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: CELERY_BROKER_URL
+        value: redis://localhost:6379/0
+
+databases:
+  - name: labelsetu-db
+    plan: free
+    region: singapore
