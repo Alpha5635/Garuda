@@ -60,10 +60,7 @@ class Settings(BaseSettings):
             elif url.startswith("postgresql://") and "+asyncpg" not in url:
                 url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
             return url
-        # If in cloud environment without DB or default fallback
-        if os.environ.get("RENDER") or os.environ.get("ENVIRONMENT") == "production":
-            return "sqlite+aiosqlite:///./labelsetu.db"
-        return f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+        return "sqlite+aiosqlite:///./labelsetu.db"
 
     def get_sync_database_url(self) -> str:
         if self.SYNC_DATABASE_URL:
@@ -71,7 +68,7 @@ class Settings(BaseSettings):
             if url.startswith("postgres://"):
                 url = url.replace("postgres://", "postgresql+psycopg2://", 1)
             elif url.startswith("postgresql://") and "+psycopg2" not in url:
-                url = url.replace("postgresql://", "postgresql+psycopg2://", 1)
+                return url.replace("postgresql://", "postgresql+psycopg2://", 1)
             return url
         if self.DATABASE_URL:
             url = self.DATABASE_URL
@@ -82,9 +79,7 @@ class Settings(BaseSettings):
             elif "+asyncpg" in url:
                 return url.replace("+asyncpg", "+psycopg2")
             return url
-        if os.environ.get("RENDER") or os.environ.get("ENVIRONMENT") == "production":
-            return "sqlite:///./labelsetu.db"
-        return f"postgresql+psycopg2://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+        return "sqlite:///./labelsetu.db"
 
 
 settings = Settings()
