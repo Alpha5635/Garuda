@@ -137,20 +137,14 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileSidebar }) => {
           SIH Live Demo
         </Button>
 
-        {/* Connectivity Mode Simulator */}
-        <button
-          onClick={() => setIsOnline(!isOnline)}
-          title={isOnline ? "Network: Online (Click to test Offline Mode)" : "Network: Offline Field Mode"}
-          className={cn(
-            "hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-mono font-medium border transition-colors",
-            isOnline 
-              ? "bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100" 
-              : "bg-amber-50 text-amber-900 border-amber-300 animate-pulse"
-          )}
+        {/* Live Cloud Status */}
+        <div
+          title="Cloud Backend: Live & Connected (Render)"
+          className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-mono font-medium border bg-emerald-50 text-emerald-800 border-emerald-200"
         >
-          {isOnline ? <Wifi className="w-3.5 h-3.5 text-emerald-600" /> : <WifiOff className="w-3.5 h-3.5 text-amber-600" />}
-          <span>{isOnline ? "Live Network" : "Offline Mode"}</span>
-        </button>
+          <Wifi className="w-3.5 h-3.5 text-emerald-600" />
+          <span>Live Cloud Uplink</span>
+        </div>
 
         {/* Notifications Button */}
         <button

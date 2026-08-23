@@ -70,12 +70,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpenMobile, onCloseMobile })
       items: [
         { label: 'Manufacturers', path: '/manufacturer', icon: Factory },
         { label: 'Consumers Grievance', path: '/consumer', icon: Users },
-        { 
-          label: 'Offline Sync', 
-          path: '/offline', 
-          icon: WifiOff, 
-          badgeCount: pendingOfflineCount > 0 ? pendingOfflineCount : undefined 
-        },
       ]
     }
   ];
