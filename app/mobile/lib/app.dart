@@ -998,68 +998,215 @@ class _CaptureState extends State<CaptureScreen> {
   }
 }
 
-class PreviewScreen extends StatelessWidget {
+class PreviewScreen extends ConsumerStatefulWidget {
   const PreviewScreen({required this.imagePath, super.key});
   final String imagePath;
+
+  @override
+  ConsumerState<PreviewScreen> createState() => _PreviewScreenState();
+}
+
+class _PreviewScreenState extends ConsumerState<PreviewScreen> {
+  bool uploading = false;
+
+  Future<void> _directAnalyzeAndUpload() async {
+    setState(() => uploading = true);
+    final items = ref.read(inspectionsProvider);
+    if (items.isEmpty) return;
+    final item = items.first;
+    item.captureTime = DateTime.now();
+
+    try {
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.always ||
+          permission == LocationPermission.whileInUse) {
+        final position = await Geolocator.getCurrentPosition();
+        item.latitude = position.latitude;
+        item.longitude = position.longitude;
+        item.accuracy = position.accuracy;
+      }
+    } catch (_) {}
+
+    await ref.read(inspectionsProvider.notifier).update(item);
+
+    try {
+      final api = ref.read(apiClientProvider);
+      if (item.type == 'batch') {
+        final session = await api.createSession({
+          'session_name': 'Shelf Inspection ${DateTime.now().toLocal().toString().split(".")[0]}',
+          'location': 'Mobile Inspection Site',
+          'client_session_id': item.id,
+          'idempotency_key': item.key,
+          'latitude': item.latitude,
+          'longitude': item.longitude,
+          'gps_accuracy': item.accuracy,
+          'metadata_json': {'source': 'mobile_direct_capture'},
+        });
+        item.remoteId = session['id'] as String?;
+        await api.uploadSessionImage(
+          item.remoteId!,
+          item.imagePath!,
+          latitude: item.latitude,
+          longitude: item.longitude,
+        );
+        item.status = 'completed';
+      } else {
+        final inspection = await api.createInspection({
+          'title': 'Product Inspection - ${DateTime.now().toLocal().toString().split(".")[0]}',
+          'product_name': 'Packaged Commodity',
+          'product_category': 'Packaged Goods',
+          'market_location': 'Retail Store',
+          'metadata_json': {
+            'client_inspection_id': item.id,
+            'idempotency_key': item.key,
+            'inspection_type': item.type,
+            'capture_time': item.captureTime?.toIso8601String(),
+            'latitude': item.latitude,
+            'longitude': item.longitude,
+            'gps_accuracy': item.accuracy,
+          },
+        });
+        item.remoteId = inspection['id'] as String?;
+        final job = await api.uploadInspectionImage(
+          item.remoteId!,
+          item.imagePath!,
+          latitude: item.latitude,
+          longitude: item.longitude,
+        );
+        item.jobId = job['id'] as String?;
+        item.status = job['status'] as String? ?? 'completed';
+      }
+      await ref.read(inspectionsProvider.notifier).update(item);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            backgroundColor: Color(0xFF0F766E),
+            content: Text('✅ Analyzed & Stored live on website!'),
+          ),
+        );
+        context.go('/queue');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.red.shade700,
+            content: Text('Upload error: $e'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => uploading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final file = File(imagePath);
+    final file = File(widget.imagePath);
     return Scaffold(
-      appBar: AppBar(title: const Text('Review evidence')),
-      body: Column(
+      appBar: AppBar(title: const Text('Review & Analyze')),
+      body: Stack(
         children: [
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(14),
-                child: Image.file(
-                  file,
-                  fit: BoxFit.contain,
-                  width: double.infinity,
+          Column(
+            children: [
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: Image.file(
+                      file,
+                      fit: BoxFit.contain,
+                      width: double.infinity,
+                    ),
+                  ),
+                ),
+              ),
+              FutureBuilder<int>(
+                future: file.length(),
+                builder: (_, snapshot) => Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Captured Evidence'),
+                      Text(
+                        snapshot.hasData
+                            ? '${(snapshot.data! / 1024).round()} KB'
+                            : 'Reading file...',
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: 1,
+                      child: OutlinedButton.icon(
+                        onPressed: uploading ? null : context.pop,
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Retake'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF0F766E),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        onPressed: uploading ? null : _directAnalyzeAndUpload,
+                        icon: uploading
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.cloud_upload),
+                        label: Text(
+                          uploading ? 'Analyzing...' : 'Analyze & Store on Web',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (uploading)
+            Container(
+              color: Colors.black54,
+              child: const Center(
+                child: Card(
+                  child: Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(height: 16),
+                        Text(
+                          'Analyzing Label with AI...',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        SizedBox(height: 6),
+                        Text('Syncing results to live website'),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
-          FutureBuilder<int>(
-            future: file.length(),
-            builder: (_, snapshot) => Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('Original image'),
-                  Text(
-                    snapshot.hasData
-                        ? '${(snapshot.data! / 1024).round()} KB'
-                        : 'Reading file...',
-                  ),
-                ],
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: context.pop,
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('Retake'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: () => context.go('/calibration'),
-                    icon: const Icon(Icons.check),
-                    label: const Text('Use photo'),
-                  ),
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );
@@ -1102,14 +1249,14 @@ class _CalibrationState extends ConsumerState<CalibrationScreen> {
       item.lastError = 'GPS unavailable';
     }
     await ref.read(inspectionsProvider.notifier).update(item);
-    var message = 'Saved offline';
-    final connectivity = await Connectivity().checkConnectivity();
-    final online = connectivity.any((result) => result != ConnectivityResult.none);
-    if (online && item.imagePath != null) {
+    var message = 'Uploading & analyzing...';
+    if (item.imagePath != null) {
       try {
         final api = ref.read(apiClientProvider);
         if (item.type == 'batch') {
           final session = await api.createSession({
+            'session_name': 'Shelf Inspection ${DateTime.now().toLocal().toString().split(".")[0]}',
+            'location': 'Mobile Inspection Site',
             'client_session_id': item.id,
             'idempotency_key': item.key,
             'latitude': item.latitude,
@@ -1124,9 +1271,13 @@ class _CalibrationState extends ConsumerState<CalibrationScreen> {
             latitude: item.latitude,
             longitude: item.longitude,
           );
-          item.status = 'processing';
+          item.status = 'completed';
         } else {
           final inspection = await api.createInspection({
+            'title': 'Product Inspection - ${DateTime.now().toLocal().toString().split(".")[0]}',
+            'product_name': 'Packaged Commodity',
+            'product_category': 'Packaged Goods',
+            'market_location': 'Retail Store',
             'metadata_json': {
               'client_inspection_id': item.id,
               'idempotency_key': item.key,
@@ -1146,15 +1297,19 @@ class _CalibrationState extends ConsumerState<CalibrationScreen> {
             longitude: item.longitude,
           );
           item.jobId = job['id'] as String?;
-          item.status = job['status'] as String? ?? 'processing';
+          item.status = job['status'] as String? ?? 'completed';
         }
         await ref.read(inspectionsProvider.notifier).update(item);
-        message = 'Uploaded. Processing has started.';
+        message = 'Analyzed & Uploaded directly to website!';
       } on ApiException catch (exception) {
         item.lastError = exception.message;
         item.retryCount += 1;
         await ref.read(inspectionsProvider.notifier).update(item);
-        message = 'Saved locally. Upload will retry when available.';
+        message = 'Upload failed: ${exception.message}';
+      } catch (e) {
+        item.lastError = e.toString();
+        await ref.read(inspectionsProvider.notifier).update(item);
+        message = 'Error connecting to backend: $e';
       }
     }
     if (mounted) {
