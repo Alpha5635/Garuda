@@ -17,7 +17,8 @@ import {
   Scale,
   LogOut,
   ChevronRight,
-  Sparkles
+  Sparkles,
+  Layers
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 
@@ -52,7 +53,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpenMobile, onCloseMobile })
       items: [
         { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
         { label: 'New Inspection', path: '/inspection/new', icon: PlusCircle, badge: 'Studio' },
-        { label: 'Inspections', path: '/history', icon: History },
+        { label: 'Batch / Shelf Scan', path: '/inspection/session/LS-2026-1042', icon: Layers, badge: 'Live' },
+        { label: 'Inspections Ledger', path: '/history', icon: History },
       ]
     },
     {

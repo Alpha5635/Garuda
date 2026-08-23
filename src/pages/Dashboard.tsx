@@ -35,12 +35,14 @@ import {
   MapPin,
   TrendingUp,
   BarChart2,
-  ChevronRight
+  ChevronRight,
+  Layers,
+  Camera
 } from 'lucide-react';
 import { cn } from '../utils/cn';
 
 export const Dashboard: React.FC = () => {
-  const { inspections, selectedDistrict } = useInspections();
+  const { inspections, batchSessions, selectedDistrict } = useInspections();
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -88,6 +90,14 @@ export const Dashboard: React.FC = () => {
           <Button
             variant="outline"
             size="sm"
+            leftIcon={<Layers className="w-3.5 h-3.5" />}
+            onClick={() => navigate('/inspection/session/LS-2026-1042')}
+          >
+            Batch Inspection
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             leftIcon={<FileText className="w-3.5 h-3.5" />}
             onClick={() => navigate('/reports')}
           >
@@ -105,34 +115,34 @@ export const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* 5 Primary Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      {/* 6 Primary Metric Cards — Updated for Batch Intelligence & Legal Metrology Enforcement */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <MetricCard
-          title="Total Inspections"
-          value={mockDashboardMetrics.totalInspections.toLocaleString()}
-          subtitle="All Divisions"
-          change={{ value: "+14.2%", trend: "up", label: "vs last month" }}
-          icon={<ClipboardCheck className="w-5 h-5 text-blue-700" />}
+          title="Inspection Sessions"
+          value={mockDashboardMetrics.inspectionSessions.toLocaleString()}
+          subtitle="Batch Shelf Audits"
+          change={{ value: "+18.5%", trend: "up", label: "multi-product" }}
+          icon={<Layers className="w-4 h-4 text-indigo-700" />}
+          iconBg="bg-indigo-50"
+          variant="info"
+        />
+
+        <MetricCard
+          title="Products Screened"
+          value={mockDashboardMetrics.productsScreened.toLocaleString()}
+          subtitle="Single & Batch Units"
+          change={{ value: "+14.2%", trend: "up", label: "surveillance" }}
+          icon={<ClipboardCheck className="w-4 h-4 text-blue-700" />}
           iconBg="bg-blue-50"
           variant="info"
         />
 
         <MetricCard
-          title="Pending Reviews"
-          value={mockDashboardMetrics.pendingReviews}
-          subtitle="Human-in-Loop"
-          change={{ value: "-8.4%", trend: "down", label: "backlog reducing" }}
-          icon={<Clock className="w-5 h-5 text-amber-700" />}
-          iconBg="bg-amber-50"
-          variant="warning"
-        />
-
-        <MetricCard
-          title="Violations"
-          value={mockDashboardMetrics.violations}
-          subtitle="Sec 36 Action"
-          change={{ value: "138 Notices", trend: "neutral", label: "issued" }}
-          icon={<AlertOctagon className="w-5 h-5 text-red-700" />}
+          title="High Priority"
+          value={mockDashboardMetrics.highPriority}
+          subtitle="Flagged by Rules"
+          change={{ value: "42 items", trend: "neutral", label: "priority queue" }}
+          icon={<AlertOctagon className="w-4 h-4 text-red-700" />}
           iconBg="bg-red-50"
           variant="violation"
         />
@@ -140,21 +150,31 @@ export const Dashboard: React.FC = () => {
         <MetricCard
           title="Review Required"
           value={mockDashboardMetrics.reviewRequired}
-          subtitle="Glare / Occlusion"
-          change={{ value: "51% avg conf", trend: "neutral" }}
-          icon={<HelpCircle className="w-5 h-5 text-amber-600" />}
+          subtitle="Specular Glare / OCR"
+          change={{ value: "86 pending", trend: "neutral", label: "human review" }}
+          icon={<HelpCircle className="w-4 h-4 text-amber-600" />}
           iconBg="bg-amber-50"
           variant="warning"
         />
 
         <MetricCard
-          title="Avg Compliance"
-          value={`${mockDashboardMetrics.averageComplianceScore}/100`}
-          subtitle="State Target 85"
-          change={{ value: "+3.2 pts", trend: "up", label: "trend" }}
-          icon={<Percent className="w-5 h-5 text-emerald-700" />}
-          iconBg="bg-emerald-50"
-          variant="pass"
+          title="Needs Recapture"
+          value={mockDashboardMetrics.needsRecapture}
+          subtitle="Occluded PDP Margin"
+          change={{ value: "17 items", trend: "neutral", label: "recapture queue" }}
+          icon={<Camera className="w-4 h-4 text-orange-600" />}
+          iconBg="bg-orange-50"
+          variant="warning"
+        />
+
+        <MetricCard
+          title="Confirmed Violations"
+          value={mockDashboardMetrics.confirmedViolations}
+          subtitle="Officer Adjudicated"
+          change={{ value: "31 Notices", trend: "neutral", label: "Sec 36 action" }}
+          icon={<ShieldAlert className="w-4 h-4 text-red-800" />}
+          iconBg="bg-red-50"
+          variant="violation"
         />
       </div>
 

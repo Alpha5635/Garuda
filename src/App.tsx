@@ -8,6 +8,7 @@ import { AppLayout } from './components/layout/AppLayout';
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
 import { NewInspection } from './pages/NewInspection';
+import { BatchInspectionSession } from './pages/BatchInspectionSession';
 import { InspectionDetail } from './pages/InspectionDetail';
 import { EvidenceForensic } from './pages/EvidenceForensic';
 import { EcommerceInspector } from './pages/EcommerceInspector';
@@ -44,6 +45,7 @@ export const AppRoutes: React.FC = () => {
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="inspection/new" element={<NewInspection />} />
+        <Route path="inspection/session/:id" element={<BatchInspectionSession />} />
         <Route path="inspection/:id" element={<InspectionDetail />} />
         <Route path="evidence/:id" element={<EvidenceForensic />} />
         <Route path="ecommerce" element={<EcommerceInspector />} />

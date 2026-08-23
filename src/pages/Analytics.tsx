@@ -91,13 +91,21 @@ export const Analytics: React.FC = () => {
         </div>
       )}
 
-      {/* 4 Top KPI Cards */}
+      {/* 4 Top KPI Cards — Updated for Batch Surveillance & Smart Recapture */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 font-mono">
         <Card className="border-l-4 border-l-blue-700">
           <CardContent className="p-4">
-            <span className="text-[10px] uppercase font-bold text-slate-500 font-sans block">Total Inspections</span>
-            <div className="text-2xl font-extrabold text-slate-900 mt-0.5">1,248</div>
-            <p className="text-[11px] text-slate-500 font-sans mt-0.5">+14.2% MTD Surveillance Growth</p>
+            <span className="text-[10px] uppercase font-bold text-slate-500 font-sans block">Products Screened</span>
+            <div className="text-2xl font-extrabold text-slate-900 mt-0.5">1,284</div>
+            <p className="text-[11px] text-slate-500 font-sans mt-0.5">+18.5% Multi-Product Acceleration</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-indigo-600">
+          <CardContent className="p-4">
+            <span className="text-[10px] uppercase font-bold text-slate-500 font-sans block">Batch Shelf Sessions</span>
+            <div className="text-2xl font-extrabold text-indigo-700 mt-0.5">124 Sessions</div>
+            <p className="text-[11px] text-indigo-700 font-sans mt-0.5">Avg 10.4 Products / Master Capture</p>
           </CardContent>
         </Card>
 
@@ -113,17 +121,9 @@ export const Analytics: React.FC = () => {
 
         <Card className="border-l-4 border-l-emerald-600">
           <CardContent className="p-4">
-            <span className="text-[10px] uppercase font-bold text-slate-500 font-sans block">Avg Enforcement Turnaround</span>
-            <div className="text-2xl font-extrabold text-emerald-700 mt-0.5">4.2 Hours</div>
-            <p className="text-[11px] text-slate-500 font-sans mt-0.5">Capture to Notice Issuance</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-amber-500">
-          <CardContent className="p-4">
-            <span className="text-[10px] uppercase font-bold text-slate-500 font-sans block">Compounding Recovery</span>
-            <div className="text-2xl font-extrabold text-slate-900 mt-0.5">₹ 41.50 Lakh</div>
-            <p className="text-[11px] text-slate-500 font-sans mt-0.5">Section 49 State Treasury</p>
+            <span className="text-[10px] uppercase font-bold text-slate-500 font-sans block">Recapture Resolution Rate</span>
+            <div className="text-2xl font-extrabold text-emerald-700 mt-0.5">94.2%</div>
+            <p className="text-[11px] text-slate-500 font-sans mt-0.5">16 of 17 Occlusions Rectified</p>
           </CardContent>
         </Card>
       </div>

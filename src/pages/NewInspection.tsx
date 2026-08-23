@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useInspections } from '../context/InspectionContext';
 import { useAuth } from '../context/AuthContext';
+import { batchInspectionApi } from '../services/batchInspectionApi';
 import { 
   Inspection, 
   InspectionStatus, 
@@ -48,9 +49,19 @@ import {
 import { cn } from '../utils/cn';
 
 export const NewInspection: React.FC = () => {
-  const { addInspection, selectedDistrict } = useInspections();
+  const { addInspection, addBatchSession, selectedDistrict } = useInspections();
   const { user } = useAuth();
   const navigate = useNavigate();
+
+  // Intake Mode Toggle: Single Product vs Batch / Shelf Scan
+  const [inspectionMode, setInspectionMode] = useState<'single' | 'batch'>('single');
+
+  // Batch Session State
+  const [batchPreset, setBatchPreset] = useState<'preset_apmc_bay4' | 'preset_metro_bay11' | 'custom'>('preset_apmc_bay4');
+  const [batchShelfImage, setBatchShelfImage] = useState('https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=1600&auto=format&fit=crop&q=85');
+  const [batchLocation, setBatchLocation] = useState('APMC Supermarket Wholesale Bay 04, Yeshwanthpur');
+  const [batchSessionNotes, setBatchSessionNotes] = useState('Shelf Bay 04 - FMCG & Edible Oils display');
+  const [isCreatingBatch, setIsCreatingBatch] = useState(false);
 
   const [currentStep, setCurrentStep] = useState<number>(0);
 
@@ -332,9 +343,39 @@ export const NewInspection: React.FC = () => {
     navigate(`/inspection/${newId}`);
   };
 
+  const handleCreateBatchSession = async () => {
+    setIsCreatingBatch(true);
+    try {
+      if (batchPreset === 'preset_apmc_bay4') {
+        navigate('/inspection/session/LS-2026-1042');
+        return;
+      }
+      if (batchPreset === 'preset_metro_bay11') {
+        navigate('/inspection/session/LS-2026-0988');
+        return;
+      }
+      const session = await batchInspectionApi.createSession({
+        district: selectedDistrict,
+        state: 'Karnataka',
+        location_name: batchLocation,
+        inspector_name: user.name,
+        inspector_badge: user.badgeNumber || 'LM-KA-BLR-0482',
+        device_info: 'Samsung Galaxy Tab Active4 Pro (Officer Unit KA-04)',
+        notes: batchSessionNotes,
+      });
+      addBatchSession(session);
+      navigate(`/inspection/session/${session.id}`);
+    } catch (err) {
+      console.error('Failed to create batch session:', err);
+      navigate('/inspection/session/LS-2026-1042');
+    } finally {
+      setIsCreatingBatch(false);
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
-      {/* Header & Step Tracker */}
+      {/* Top Header Card with Inspection Type Toggle */}
       <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-subtle space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <div>
@@ -342,7 +383,7 @@ export const NewInspection: React.FC = () => {
               Legal Metrology Officer Inspection Intake
             </h1>
             <p className="text-xs text-slate-500 mt-0.5">
-              5-stage statutory intake: Capture guidance, GPS tag, physical calibration & deterministic analysis
+              Select inspection methodology: Single package forensic docket vs. Batch shelf multi-product detection
             </p>
           </div>
           <Badge variant="blue" className="w-fit font-mono">
@@ -350,15 +391,273 @@ export const NewInspection: React.FC = () => {
           </Badge>
         </div>
 
-        <ProgressIndicator
-          steps={steps}
-          currentStepIndex={currentStep}
-          onStepClick={(idx) => !pipelineRunning && setCurrentStep(idx)}
-        />
+        {/* Inspection Mode Selector: Single Product vs Batch / Shelf Scan */}
+        <div className="bg-slate-100 p-1 rounded-xl flex items-center gap-1 border border-slate-200">
+          <button
+            type="button"
+            onClick={() => setInspectionMode('single')}
+            className={cn(
+              "flex-1 py-2.5 px-4 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2",
+              inspectionMode === 'single'
+                ? "bg-white text-blue-900 shadow-sm border border-slate-200"
+                : "text-slate-600 hover:text-slate-900"
+            )}
+          >
+            <ShieldCheck className="w-4 h-4 text-blue-600" />
+            <span>Single Product</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setInspectionMode('batch')}
+            className={cn(
+              "flex-1 py-2.5 px-4 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2",
+              inspectionMode === 'batch'
+                ? "bg-white text-blue-900 shadow-sm border border-slate-200"
+                : "text-slate-600 hover:text-slate-900"
+            )}
+          >
+            <Layers className="w-4 h-4 text-indigo-600" />
+            <span>Batch / Shelf Scan</span>
+            <span className="bg-indigo-100 text-indigo-800 text-[10px] font-mono font-bold px-1.5 py-0.5 rounded">
+              Multi-Product
+            </span>
+          </button>
+        </div>
+
+        {/* Single Mode Step Tracker */}
+        {inspectionMode === 'single' && (
+          <ProgressIndicator
+            steps={steps}
+            currentStepIndex={currentStep}
+            onStepClick={(idx) => !pipelineRunning && setCurrentStep(idx)}
+          />
+        )}
       </div>
 
-      {/* STEP 0: Capture & Intake Source */}
-      {currentStep === 0 && (
+      {/* ======================================================== */}
+      {/* BATCH / SHELF SCAN WORKFLOW (STAGE 4A) */}
+      {/* ======================================================== */}
+      {inspectionMode === 'batch' && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          {/* Statutory Guidance Banner */}
+          <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white p-5 rounded-xl border border-blue-800 shadow-card space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+              <h2 className="text-sm sm:text-base font-bold tracking-tight">
+                Capture an entire shelf, display, or group of products in one image.
+              </h2>
+            </div>
+            <p className="text-xs text-blue-200 max-w-3xl leading-relaxed">
+              Legal Metrology AI will automatically detect all individual product packaging, draw calibrated bounding boxes, and evaluate Rule 6 & 7 compliance across every product in the batch.
+            </p>
+
+            {/* Statutory Officer Guidance Checklist */}
+            <div className="pt-2 border-t border-white/10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-xs">
+              <div className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-lg border border-white/10">
+                <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>Keep products visible</span>
+              </div>
+              <div className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-lg border border-white/10">
+                <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>Capture the complete display</span>
+              </div>
+              <div className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-lg border border-white/10">
+                <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>Avoid glare</span>
+              </div>
+              <div className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-lg border border-white/10">
+                <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>Keep camera steady</span>
+              </div>
+              <div className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-lg border border-white/10">
+                <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>Ensure labels are readable</span>
+              </div>
+              <div className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-lg border border-white/10">
+                <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>Use calibration reference when required</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Batch Intake Form & Image Preview */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Left: Shelf Evidence Image Selector (7 cols) */}
+            <Card className="lg:col-span-7">
+              <CardHeader>
+                <div>
+                  <CardTitle>1. Shelf Visual Evidence Intake</CardTitle>
+                  <CardDescription>Select seeded shelf preset or upload store display photo</CardDescription>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Preset Selector */}
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-600 block mb-2">
+                    Select Seeded Shelf Inspection Demo
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBatchPreset('preset_apmc_bay4');
+                        setBatchShelfImage('https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=1600&auto=format&fit=crop&q=85');
+                        setBatchLocation('APMC Supermarket Wholesale Bay 04, Yeshwanthpur');
+                        setBatchSessionNotes('Shelf Bay 04 - FMCG & Edible Oils display (6 Products)');
+                      }}
+                      className={cn(
+                        "p-3 rounded-lg border text-left transition-all",
+                        batchPreset === 'preset_apmc_bay4'
+                          ? "border-blue-600 ring-2 ring-blue-600 bg-blue-50/50 shadow-xs"
+                          : "bg-slate-50 border-slate-200 hover:bg-slate-100"
+                      )}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-900">APMC Wholesale Bay 04</span>
+                        <span className="text-[10px] font-mono font-bold bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded">
+                          6 Products
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-1 truncate">
+                        Fortune Oil, Tata Moong, Haldiram, Atta, Masala
+                      </p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBatchPreset('preset_metro_bay11');
+                        setBatchShelfImage('https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=1600&auto=format&fit=crop&q=85');
+                        setBatchLocation('Metro Cash & Carry, Yeshwanthpur Wholesale Center');
+                        setBatchSessionNotes('Metro Supermarket Bay 11 - Packaged Grains & Staples (12 Products)');
+                      }}
+                      className={cn(
+                        "p-3 rounded-lg border text-left transition-all",
+                        batchPreset === 'preset_metro_bay11'
+                          ? "border-blue-600 ring-2 ring-blue-600 bg-blue-50/50 shadow-xs"
+                          : "bg-slate-50 border-slate-200 hover:bg-slate-100"
+                      )}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-900">Metro Supermarket Bay 11</span>
+                        <span className="text-[10px] font-mono font-bold bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded">
+                          12 Products
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-1 truncate">
+                        Large retail shelf bay multi-product scan
+                      </p>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Shelf Image Live Preview with Reticle */}
+                <div className="relative aspect-16/9 bg-slate-950 rounded-xl overflow-hidden border border-slate-800 shadow-md">
+                  <img
+                    src={batchShelfImage}
+                    alt="Shelf Visual Evidence Preview"
+                    className="w-full h-full object-cover opacity-90"
+                  />
+                  <div className="absolute inset-0 bg-mm-grid opacity-30 pointer-events-none" />
+                  
+                  <div className="absolute top-3 left-3 bg-slate-900/90 text-white font-mono text-[10px] px-2.5 py-1 rounded-md border border-slate-700 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                    <span>Resolution: 1600 x 1067 px</span>
+                  </div>
+
+                  <div className="absolute bottom-3 left-3 bg-slate-900/90 text-white font-mono text-[10px] px-2.5 py-1 rounded-md border border-slate-700">
+                    SHA-256: 9f83acde7821...837
+                  </div>
+
+                  <div className="absolute bottom-3 right-3 bg-blue-600/90 text-white font-mono text-[10px] px-2.5 py-1 rounded-md border border-blue-400/30">
+                    Auto-Detection Ready
+                  </div>
+                </div>
+              </CardContent>
+              <CardFooter className="border-t border-slate-100 bg-slate-50 text-xs text-slate-500 font-mono">
+                Method: Single-Capture Multi-Product Detection
+              </CardFooter>
+            </Card>
+
+            {/* Right: Session Location & Launch Card (5 cols) */}
+            <Card className="lg:col-span-5 flex flex-col justify-between">
+              <CardHeader>
+                <div>
+                  <CardTitle>2. Inspection Session Details</CardTitle>
+                  <CardDescription>Jurisdiction, officer stamp, and automated staging</CardDescription>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-600 block mb-1">
+                    Store / Market Location
+                  </label>
+                  <Input
+                    value={batchLocation}
+                    onChange={(e) => setBatchLocation(e.target.value)}
+                    placeholder="e.g. APMC Supermarket Wholesale Hub"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-600 block mb-1">
+                      Division / District
+                    </label>
+                    <Input value={selectedDistrict} disabled className="bg-slate-50" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-600 block mb-1">
+                      State
+                    </label>
+                    <Input value="Karnataka" disabled className="bg-slate-50" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-600 block mb-1">
+                    Session Notes / Description
+                  </label>
+                  <Input
+                    value={batchSessionNotes}
+                    onChange={(e) => setBatchSessionNotes(e.target.value)}
+                    placeholder="e.g. Bay 04 routine surveillance"
+                  />
+                </div>
+
+                <div className="bg-blue-50/70 p-3 rounded-lg border border-blue-200 text-xs space-y-1">
+                  <div className="flex items-center gap-1.5 text-blue-900 font-bold">
+                    <Sparkles className="w-3.5 h-3.5 text-blue-700" />
+                    Automated Neural Segmentation
+                  </div>
+                  <p className="text-blue-800 text-[11px] leading-relaxed">
+                    You do <strong>not</strong> need to manually create each product. The backend will detect all packaging units on the shelf and stage individual compliance dockets automatically.
+                  </p>
+                </div>
+              </CardContent>
+
+              <CardFooter className="border-t border-slate-100 pt-4">
+                <Button
+                  variant="primary"
+                  size="lg"
+                  className="w-full bg-blue-700 hover:bg-blue-800 shadow-md font-bold"
+                  onClick={handleCreateBatchSession}
+                  disabled={isCreatingBatch}
+                  leftIcon={isCreatingBatch ? <Loader2 className="w-4 h-4 animate-spin" /> : <Layers className="w-4 h-4" />}
+                >
+                  {isCreatingBatch ? 'Creating Session & Uploading...' : 'Initiate Batch Inspection Session'}
+                </Button>
+              </CardFooter>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* SINGLE PRODUCT WORKFLOW (PRESERVED) */}
+      {/* ======================================================== */}
+      {inspectionMode === 'single' && currentStep === 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <Card className="lg:col-span-7">
             <CardHeader>

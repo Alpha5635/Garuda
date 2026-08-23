@@ -242,3 +242,144 @@ export interface NoticeOfViolation {
   officerDesignation: string;
   status: 'Draft' | 'Issued' | 'Acknowledged' | 'Compounded' | 'Forwarded for Prosecution';
 }
+
+// ==========================================
+// STAGE 4A & 4B: BATCH / SHELF INSPECTION TYPES
+// ==========================================
+
+export type BatchSessionStatus = 
+  | 'Queued'
+  | 'Detecting Products'
+  | 'Processing Products'
+  | 'Aggregating Results'
+  | 'Complete'
+  | 'Partial Failure'
+  | 'Failed';
+
+export type ProductPriority = 
+  | 'High Priority' 
+  | 'Medium Priority'
+  | 'Low Priority'
+  | 'Normal';
+
+export type ProductReviewStatus = 
+  | 'Verified' 
+  | 'Review Required' 
+  | 'Needs Recapture' 
+  | 'Violation' 
+  | 'Not Evaluable'
+  | 'Processing';
+
+export type RecaptureReason = 
+  | 'glare' 
+  | 'blur' 
+  | 'low_resolution' 
+  | 'bad_orientation' 
+  | 'partial_label' 
+  | 'low_ocr_confidence' 
+  | 'invalid_calibration' 
+  | 'shelf_divider_occlusion'
+  | 'occlusion';
+
+export interface RecaptureEvidence {
+  originalCropUrl: string;
+  newCropUrl: string;
+  reason: RecaptureReason | string;
+  reasonDescription: string;
+  recapturedAt: string;
+  officerNotes?: string;
+  statusAfterRecapture?: ProductReviewStatus;
+}
+
+export interface DetectedProduct {
+  id: string;
+  productNumber: string; // e.g. "Product 01"
+  sequenceNumber: number; // e.g. 1
+  productName: string;
+  brand: string;
+  category: string;
+  bbox: BoundingBox;
+  cropImageUrl: string;
+  cropSha256?: string;
+  detectionConfidence: number; // backend provided value (e.g. 96.4)
+  processingStatus: 'Queued' | 'Processing' | 'Complete' | 'Failed';
+  priority: ProductPriority;
+  priorityReason?: string; // backend provided reason, e.g. "Rule violation detected"
+  reviewStatus: ProductReviewStatus;
+  recaptureReason?: RecaptureReason | string; // backend provided reason, e.g. "glare", "blur"
+  recaptureDescription?: string;
+  recaptureEvidence?: RecaptureEvidence;
+  inspectionId: string; // connects to individual inspection detail docket
+  violationCount?: number;
+  notes?: string;
+}
+
+export interface BatchInspectionSession {
+  id: string; // e.g. "LS-2026-1042"
+  clientSessionId: string; // UUID v4
+  idempotencyKey: string;
+  sessionName?: string;
+  createdAt: string;
+  updatedAt: string;
+  status: BatchSessionStatus;
+  originalImageUrl: string;
+  imageSha256?: string;
+  imageDimensions?: {
+    width: number;
+    height: number;
+  };
+  locationName: string;
+  district: string;
+  state: string;
+  inspectorName: string;
+  inspectorBadge: string;
+  deviceInfo?: string;
+  totalProducts: number;
+  processedCount: number;
+  completedCount: number;
+  reviewRequiredCount: number;
+  needsRecaptureCount: number;
+  failedCount: number;
+  highPriorityCount: number;
+  mediumPriorityCount: number;
+  lowPriorityCount: number;
+  violationsCount: number;
+  isPartialFailure?: boolean;
+  partialFailureDetails?: {
+    totalDetected: number;
+    completed: number;
+    reviewRequired: number;
+    failed: number;
+    failedProductIds: string[];
+  };
+  products: DetectedProduct[];
+  isSeededDemo?: boolean;
+  errorMessage?: string;
+}
+
+export interface CreateBatchSessionRequest {
+  client_session_id: string;
+  idempotency_key: string;
+  district: string;
+  state: string;
+  location_name?: string;
+  inspector_name: string;
+  inspector_badge: string;
+  device_info?: string;
+  notes?: string;
+}
+
+export interface RequestUploadUrlRequest {
+  filename: string;
+  content_type: string;
+  file_size_bytes?: number;
+  sha256?: string;
+}
+
+export interface UploadUrlResponse {
+  upload_url: string;
+  object_key: string;
+  expires_in_seconds: number;
+}
+
+

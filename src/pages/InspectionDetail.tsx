@@ -45,7 +45,7 @@ import { cn } from '../utils/cn';
 
 export const InspectionDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const { inspections, updateInspectionStatus, generateNotice } = useInspections();
+  const { inspections, batchSessions, updateInspectionStatus, generateNotice } = useInspections();
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -54,6 +54,10 @@ export const InspectionDetail: React.FC = () => {
   const inspection = inspections.find(
     i => i.id.toLowerCase() === currentId.toLowerCase()
   ) || inspections[0];
+
+  const parentSession = batchSessions?.find(
+    s => s.products.some(p => p.inspectionId.toLowerCase() === inspection?.id?.toLowerCase())
+  );
 
   // Workstation Interactive Controls
   const [selectedFindingId, setSelectedFindingId] = useState<string | null>(
@@ -150,13 +154,28 @@ export const InspectionDetail: React.FC = () => {
     <div className="space-y-5 max-w-[1600px] mx-auto">
       {/* Top Breadcrumb & Demo Case Switcher */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
-        <Breadcrumbs
-          items={[
-            { label: 'Officer Command', href: '/dashboard' },
-            { label: 'Inspection Workstation' },
-            { label: inspection.id },
-          ]}
-        />
+        <div className="flex items-center gap-3">
+          <Breadcrumbs
+            items={parentSession ? [
+              { label: 'Command Center', href: '/dashboard' },
+              { label: `Batch Session ${parentSession.id}`, href: `/inspection/session/${parentSession.id}` },
+              { label: inspection.id },
+            ] : [
+              { label: 'Officer Command', href: '/dashboard' },
+              { label: 'Inspection Workstation' },
+              { label: inspection.id },
+            ]}
+          />
+          {parentSession && (
+            <Link
+              to={`/inspection/session/${parentSession.id}`}
+              className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded border border-indigo-200 transition"
+            >
+              <Layers className="w-3 h-3 text-indigo-600" />
+              <span>← Back to Batch {parentSession.id}</span>
+            </Link>
+          )}
+        </div>
 
         {/* Quick Demo Case Selector Tabs */}
         <div className="flex items-center gap-1.5 overflow-x-auto text-xs">
