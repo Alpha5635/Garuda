@@ -43,11 +43,34 @@ app.include_router(rule_admin.router, prefix=settings.API_V1_STR)
 async def on_startup():
     try:
         from app.models.base import Base
-        from app.dependencies import async_engine
+        from app.dependencies import async_engine, AsyncSessionLocal
+        from app.models.user import User, UserRole
+        from app.repositories.user_repository import UserRepository
+        from app.services.auth_service import AuthService
+
         async with async_engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+
+        async with AsyncSessionLocal() as session:
+            user_repo = UserRepository(session)
+            demo_accounts = [
+                ("officer@lm.gov.in", "Inspector Mumbai", UserRole.OFFICER),
+                ("officer@labelsetu.gov.in", "Inspector Central", UserRole.OFFICER),
+                ("admin@doca.gov.in", "Admin DoCA", UserRole.SUPER_ADMIN),
+            ]
+            for email, name, role in demo_accounts:
+                existing = await user_repo.get_by_email(email)
+                if not existing:
+                    user = User(
+                        email=email,
+                        password_hash=AuthService.hash_password("Demo@2026"),
+                        name=name,
+                        role=role.value if isinstance(role, UserRole) else str(role)
+                    )
+                    await user_repo.create(user)
+            await session.commit()
     except Exception as e:
-        print(f"[Startup] Note on database table init: {e}")
+        print(f"[Startup] Note on database table init/seed: {e}")
 
 
 @app.get("/", tags=["Health"])
