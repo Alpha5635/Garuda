@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
@@ -46,7 +47,7 @@ async def on_startup():
         async with async_engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
     except Exception as e:
-        print(f"[Startup] Warning initializing database tables: {e}")
+        print(f"[Startup] Note on database table init: {e}")
 
 
 @app.get("/", tags=["Health"])
@@ -62,3 +63,9 @@ async def root():
 @app.get("/health", tags=["Health"])
 async def health_check():
     return {"status": "healthy"}
+
+
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("app.main:app", host="0.0.0.0", port=port)
