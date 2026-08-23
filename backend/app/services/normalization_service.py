@@ -52,38 +52,48 @@ class NormalizationService:
 
             # 2. Net Quantity Normalization
             elif field_name == "net_quantity":
-                match = re.search(r'(\d+(?:\.\d+)?)\s*(g|kg|ml|l|ltr|gm|grams)', raw_val, re.IGNORECASE)
+                match = re.search(r'(\d+(?:\.\d+)?)\s*([a-zA-Z]+)', raw_val)
                 if match:
                     num_val = float(match.group(1))
                     raw_unit = match.group(2).lower()
-                    if raw_unit in ["g", "gm", "grams"]:
+                    # Standardize unit
+                    if raw_unit in ["g", "gm", "gms", "gram", "grams"]:
                         unit = "g"
-                    elif raw_unit in ["kg"]:
+                    elif raw_unit in ["kg", "kgs", "kilogram"]:
                         unit = "kg"
-                    elif raw_unit in ["ml"]:
+                    elif raw_unit in ["ml", "mls", "millilitre"]:
                         unit = "ml"
-                    elif raw_unit in ["l", "ltr"]:
-                        unit = "L"
+                    elif raw_unit in ["l", "ltr", "liter", "litre"]:
+                        unit = "l"
+                    elif raw_unit in ["n", "unit", "units", "pc", "pcs"]:
+                        unit = "N"
+                    else:
+                        unit = raw_unit
                     norm_val = f"{num_val} {unit}"
 
-            # 3. Unit Sale Price (USP)
-            elif field_name == "unit_sale_price":
-                match = re.search(r'(\d+(?:\.\d{1,2})?)\s*/\s*([a-zA-Z]+)', raw_val)
+            # 3. Month & Year Normalization
+            elif field_name in ["month_year", "manufacturing_date", "expiry_date", "best_before"]:
+                match = re.search(r'(\d{2})[/\.-](\d{2,4})', raw_val)
                 if match:
-                    num_val = float(match.group(1))
-                    unit = match.group(2)
-                    norm_val = f"₹ {num_val:.2f}/{unit}"
+                    m = int(match.group(1))
+                    y = int(match.group(2))
+                    if y < 100:
+                        y += 2000
+                    norm_val = f"{y:04d}-{m:02d}"
 
-            # 4. Dates (Mfg / Expiry / Best Before)
-            elif field_name in ["manufacturing_date", "expiry_date", "best_before"]:
-                # Match DD/MM/YYYY or MM/YYYY
-                match = re.search(r'(\d{1,2})[/.-](\d{1,2}|[a-zA-Z]{3,9})[/.-](\d{2,4})', raw_val)
-                if match:
-                    norm_val = f"{match.group(1)}/{match.group(2)}/{match.group(3)}"
+            # 4. Manufacturer & Address RapidFuzz fuzzy match
+            elif field_name in ["manufacturer", "manufacturer_name", "country_of_origin", "consumer_care"]:
+                norm_val = re.sub(r'\s+', ' ', raw_val).strip()
 
-            # 5. Manufacturer / Country of Origin
-            elif field_name in ["manufacturer_name", "country_of_origin", "consumer_care"]:
-                norm_val = raw_val.strip()
+            # Find matching bounding box
+            bbox = None
+            for item in ocr_items:
+                if candidate.raw_snippet and candidate.raw_snippet in item.raw_text:
+                    bbox = item.bbox
+                    break
+                elif raw_val in item.raw_text:
+                    bbox = item.bbox
+                    break
 
             normalized_list.append(
                 NormalizedFieldSchema(
@@ -92,7 +102,8 @@ class NormalizationService:
                     normalized_value=norm_val,
                     numeric_value=num_val,
                     unit=unit,
-                    confidence=candidate.confidence
+                    confidence=candidate.confidence,
+                    bounding_box=bbox
                 )
             )
 
