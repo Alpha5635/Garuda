@@ -1,3 +1,4 @@
+import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
 
@@ -53,12 +54,36 @@ class Settings(BaseSettings):
 
     def get_database_url(self) -> str:
         if self.DATABASE_URL:
-            return self.DATABASE_URL
+            url = self.DATABASE_URL
+            if url.startswith("postgres://"):
+                url = url.replace("postgres://", "postgresql+asyncpg://", 1)
+            elif url.startswith("postgresql://") and "+asyncpg" not in url:
+                url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+            return url
+        # If in cloud environment without DB or default fallback
+        if os.environ.get("RENDER") or os.environ.get("ENVIRONMENT") == "production":
+            return "sqlite+aiosqlite:///./labelsetu.db"
         return f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
 
     def get_sync_database_url(self) -> str:
         if self.SYNC_DATABASE_URL:
-            return self.SYNC_DATABASE_URL
+            url = self.SYNC_DATABASE_URL
+            if url.startswith("postgres://"):
+                url = url.replace("postgres://", "postgresql+psycopg2://", 1)
+            elif url.startswith("postgresql://") and "+psycopg2" not in url:
+                url = url.replace("postgresql://", "postgresql+psycopg2://", 1)
+            return url
+        if self.DATABASE_URL:
+            url = self.DATABASE_URL
+            if url.startswith("postgres://"):
+                return url.replace("postgres://", "postgresql+psycopg2://", 1)
+            elif url.startswith("postgresql://") and "+psycopg2" not in url:
+                return url.replace("postgresql://", "postgresql+psycopg2://", 1)
+            elif "+asyncpg" in url:
+                return url.replace("+asyncpg", "+psycopg2")
+            return url
+        if os.environ.get("RENDER") or os.environ.get("ENVIRONMENT") == "production":
+            return "sqlite:///./labelsetu.db"
         return f"postgresql+psycopg2://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
 
 
