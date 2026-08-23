@@ -38,6 +38,17 @@ app.include_router(dashboard.router, prefix=settings.API_V1_STR)
 app.include_router(rule_admin.router, prefix=settings.API_V1_STR)
 
 
+@app.on_event("startup")
+async def on_startup():
+    try:
+        from app.models.base import Base
+        from app.dependencies import async_engine
+        async with async_engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+    except Exception as e:
+        print(f"[Startup] Warning initializing database tables: {e}")
+
+
 @app.get("/", tags=["Health"])
 async def root():
     return {
