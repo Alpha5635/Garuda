@@ -14,6 +14,13 @@ __pycache__/
 env/
 venv/
 
+# Node / Frontend
+node_modules/
+dist/
+build/
+.next/
+*.tsbuildinfo
+
 # OS / Editor files
 .DS_Store
 Thumbs.db
