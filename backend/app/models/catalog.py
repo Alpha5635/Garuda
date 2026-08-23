@@ -28,6 +28,24 @@ class Brand(Base, TimestampMixin):
         index=True,
         doc="Official registered brand name, e.g. 'Aashirvaad', 'Fortune', 'Tata Sampann'",
     )
+    name: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+        index=True,
+        doc="Brand name / display name",
+    )
+    normalized_name: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+        index=True,
+        doc="Lowercased / stripped brand name for fast normalized lookups",
+    )
+    organisation_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID,
+        ForeignKey("organisations.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     aliases_jsonb: Mapped[List[str]] = mapped_column(
         JSONB().with_variant(JSON(), "sqlite"),
         nullable=False,
@@ -45,6 +63,11 @@ class Brand(Base, TimestampMixin):
     manufacturer_org: Mapped["Organisation | None"] = relationship(
         "Organisation",
         back_populates="brands",
+        foreign_keys=[manufacturer_org_id],
+    )
+    organisation: Mapped["Organisation | None"] = relationship(
+        "Organisation",
+        foreign_keys=[organisation_id],
     )
     products: Mapped[List["Product"]] = relationship(
         "Product",
@@ -82,6 +105,12 @@ class Product(Base, TimestampMixin):
         ForeignKey("brands.id", ondelete="RESTRICT"),
         nullable=False,
         index=True,
+    )
+    name: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+        index=True,
+        doc="Product name / commercial title",
     )
     generic_name: Mapped[str] = mapped_column(
         String(255),

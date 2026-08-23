@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from backend.app.models.catalog import Brand, Product
 from backend.app.models.inspection import Inspection, Violation
 from backend.app.models.intelligence import Offender
+from backend.app.models.session import InspectionSession, BatchImage, ProductDetection
 
 
 class IntelligenceService:
@@ -38,17 +39,15 @@ class IntelligenceService:
     ) -> List[Offender]:
         """
         Aggregate compliance performance per brand over a defined quarterly or monthly reporting period.
-        Calculates:
-          - inspection_count: Total inspections for products belonging to the brand
-          - confirmed_count: Number of confirmed rule violations
-          - severity_score: Weighted cumulative non-compliance risk score
-          - last_seen_at: Most recent inspection timestamp in the period
+        Extracts confirmed non-compliance cases to build actionable enforcement risk scores.
         """
-        start_dt = datetime.combine(period_start, time.min).replace(tzinfo=timezone.utc)
-        end_dt = datetime.combine(period_end, time.max).replace(tzinfo=timezone.utc)
+        results: List[Offender] = []
+
+        # 1. Query all brands active in this window
+        start_dt = datetime.combine(period_start, time.min, tzinfo=timezone.utc)
+        end_dt = datetime.combine(period_end, time.max, tzinfo=timezone.utc)
 
         brands = session.execute(select(Brand)).scalars().all()
-        results: List[Offender] = []
 
         for brand in brands:
             # 1. Fetch inspections for this brand in the period
@@ -205,3 +204,74 @@ class IntelligenceService:
             }
             for row in rows
         ]
+
+    @classmethod
+    def get_batch_inspection_intelligence(
+        cls,
+        session: Session,
+        session_id: Optional[uuid.UUID] = None,
+        organisation_id: Optional[uuid.UUID] = None,
+    ) -> Dict[str, Any]:
+        """
+        Compute dynamic aggregation metrics across batch inspection sessions.
+        """
+        # 1. Total sessions
+        sess_stmt = select(func.count(InspectionSession.id))
+        if organisation_id:
+            sess_stmt = sess_stmt.where(InspectionSession.organisation_id == organisation_id)
+        if session_id:
+            sess_stmt = sess_stmt.where(InspectionSession.id == session_id)
+        total_sessions = session.execute(sess_stmt).scalar() or 0
+
+        # 2. Total products screened & status counts
+        det_stmt = (
+            select(
+                func.count(ProductDetection.id).label("total_screened"),
+                func.count(ProductDetection.id).filter(ProductDetection.status == "review_required").label("review_required"),
+                func.count(ProductDetection.id).filter(ProductDetection.status == "needs_recapture").label("needs_recapture"),
+            )
+            .select_from(ProductDetection)
+            .join(BatchImage, ProductDetection.batch_image_id == BatchImage.id)
+            .join(InspectionSession, BatchImage.session_id == InspectionSession.id)
+        )
+
+        if organisation_id:
+            det_stmt = det_stmt.where(InspectionSession.organisation_id == organisation_id)
+        if session_id:
+            det_stmt = det_stmt.where(InspectionSession.id == session_id)
+
+        det_row = session.execute(det_stmt).first()
+        total_screened = det_row.total_screened if det_row else 0
+        det_review_req = det_row.review_required if det_row else 0
+        det_recapture = det_row.needs_recapture if det_row else 0
+
+        # 3. Violation priorities
+        viol_stmt = (
+            select(
+                func.count(Violation.id).label("total_violations"),
+                func.count(Violation.id).filter(Violation.severity == "Critical").label("high_priority"),
+                func.count(Violation.id).filter(Violation.severity == "Major").label("medium_priority"),
+                func.count(Violation.id).filter(Violation.severity == "Minor").label("low_priority"),
+                func.count(Violation.id).filter(Violation.status == "confirmed").label("confirmed_violations"),
+            )
+            .select_from(Violation)
+            .join(Inspection, Violation.inspection_id == Inspection.id)
+        )
+
+        if organisation_id:
+            viol_stmt = viol_stmt.where(Inspection.organisation_id == organisation_id)
+        if session_id:
+            viol_stmt = viol_stmt.where(Inspection.inspection_session_id == session_id)
+
+        viol_row = session.execute(viol_stmt).first()
+
+        return {
+            "total_sessions": total_sessions,
+            "total_products_screened": total_screened,
+            "high_priority_products": viol_row.high_priority if viol_row else 0,
+            "medium_priority_products": viol_row.medium_priority if viol_row else 0,
+            "low_priority_products": viol_row.low_priority if viol_row else 0,
+            "review_required": det_review_req,
+            "needs_recapture": det_recapture,
+            "confirmed_violations": viol_row.confirmed_violations if viol_row else 0,
+        }

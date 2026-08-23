@@ -21,6 +21,11 @@ from backend.app.models.role import Role, UserRole
 from backend.app.models.user import User
 from backend.app.models.catalog import Brand, Product
 from backend.app.models.rule import RulePack, RuleVersion
+from backend.app.models.session import (
+    InspectionSession,
+    BatchImage,
+    ProductDetection,
+)
 from backend.app.models.inspection import (
     Inspection,
     ProductImage,
@@ -58,8 +63,8 @@ def db_session_fixture():
     Base.metadata.drop_all(engine)
 
 
-def test_schema_creation_and_all_19_tables(db_session_fixture: Session):
-    """Test 1: Verify all 19 tables can be created on a blank database."""
+def test_schema_creation_and_all_tables(db_session_fixture: Session):
+    """Test 1: Verify all core and batch inspection tables can be created on a blank database."""
     tables = Base.metadata.tables.keys()
     required_tables = [
         "organisations",
@@ -71,6 +76,9 @@ def test_schema_creation_and_all_19_tables(db_session_fixture: Session):
         "rule_packs",
         "rule_versions",
         "model_versions",
+        "inspection_sessions",
+        "batch_images",
+        "product_detections",
         "inspections",
         "product_images",
         "extracted_fields",
@@ -645,10 +653,192 @@ def test_repeat_offender_intelligence_aggregation(db_session_fixture: Session):
     assert "total_inspections" in heatmap[0]
 
 
+def test_batch_inspection_session_and_detections(db_session_fixture: Session):
+    """Test 20: Verify batch inspection session creation, batch image, and product detection linkage."""
+    seed_database(db_session_fixture)
+
+    # 1. Query seeded batch session
+    session_obj = db_session_fixture.execute(
+        select(InspectionSession).filter_by(channel="batch")
+    ).scalars().first()
+
+    assert session_obj is not None
+    assert session_obj.status == "complete"
+    assert session_obj.client_session_id == "MOB-SESS-20260215-001"
+    assert len(session_obj.batch_images) >= 1
+
+    # 2. Check batch image metadata
+    batch_img = session_obj.batch_images[0]
+    assert len(batch_img.sha256) == 64
+    assert batch_img.mime_type == "image/jpeg"
+    assert batch_img.width_px == 3840
+    assert batch_img.height_px == 2160
+    assert len(batch_img.detections) >= 2
+
+    # 3. Spawn an individual inspection linked to a detection
+    det0 = batch_img.detections[0]
+    prod = db_session_fixture.execute(select(Product)).scalars().first()
+    rv = db_session_fixture.execute(select(RuleVersion)).scalars().first()
+
+    insp_child = Inspection(
+        organisation_id=session_obj.organisation_id,
+        inspection_session_id=session_obj.id,
+        product_detection_id=det0.id,
+        product_id=prod.id,
+        channel="batch",
+        status="completed",
+        rule_version_id=rv.id,
+        score=95.0,
+        client_inspection_id="MOB-INSP-CHILD-001",
+        idempotency_key="DELHI_OFFICER_BATCH_CHILD_001",
+    )
+    det0.status = "complete"
+    db_session_fixture.add(insp_child)
+    db_session_fixture.commit()
+
+    # 4. Verify relationships
+    assert insp_child.session.id == session_obj.id
+    assert insp_child.product_detection.id == det0.id
+    assert len(session_obj.inspections) >= 1
+
+    # 5. Verify single product inspection can have NULL inspection_session_id
+    insp_single = db_session_fixture.execute(
+        select(Inspection).filter_by(channel="package")
+    ).scalars().first()
+    assert insp_single.inspection_session_id is None
+    assert insp_single.product_detection_id is None
+
+
+def test_session_and_inspection_idempotency_keys(db_session_fixture: Session):
+    """Test 21: Verify idempotency keys prevent duplicate sessions and inspections."""
+    seed_database(db_session_fixture)
+    org = db_session_fixture.execute(select(Organisation)).scalars().first()
+
+    # Test Session Idempotency
+    sess1 = InspectionSession(
+        organisation_id=org.id,
+        channel="batch",
+        idempotency_key="UNIQUE_SESS_KEY_001",
+    )
+    db_session_fixture.add(sess1)
+    db_session_fixture.commit()
+
+    sess2 = InspectionSession(
+        organisation_id=org.id,
+        channel="batch",
+        idempotency_key="UNIQUE_SESS_KEY_001",
+    )
+    db_session_fixture.add(sess2)
+    with pytest.raises(IntegrityError):
+        db_session_fixture.commit()
+    db_session_fixture.rollback()
+
+    # Test Inspection Idempotency
+    insp1 = Inspection(
+        organisation_id=org.id,
+        channel="package",
+        idempotency_key="UNIQUE_INSP_KEY_001",
+    )
+    db_session_fixture.add(insp1)
+    db_session_fixture.commit()
+
+    insp2 = Inspection(
+        organisation_id=org.id,
+        channel="package",
+        idempotency_key="UNIQUE_INSP_KEY_001",
+    )
+    db_session_fixture.add(insp2)
+    with pytest.raises(IntegrityError):
+        db_session_fixture.commit()
+    db_session_fixture.rollback()
+
+
+def test_cross_organisation_complete_isolation(db_session_fixture: Session):
+    """Test 22: Verify Organisation A cannot retrieve Organisation B's inspections, images, violations, reports, audit events, or ecommerce listings."""
+    seed_database(db_session_fixture)
+
+    delhi_org = db_session_fixture.execute(select(Organisation).filter_by(state_code="DL")).scalars().first()
+    mh_org = db_session_fixture.execute(select(Organisation).filter_by(state_code="MH")).scalars().first()
+
+    # 1. Inspections Isolation
+    delhi_insps = db_session_fixture.execute(select(Inspection).filter_by(organisation_id=delhi_org.id)).scalars().all()
+    mh_insps = db_session_fixture.execute(select(Inspection).filter_by(organisation_id=mh_org.id)).scalars().all()
+    assert len(delhi_insps) > 0
+    assert len(mh_insps) == 0
+
+    # 2. Product Images Isolation (via Inspection)
+    delhi_insp_ids = [i.id for i in delhi_insps]
+    delhi_images = db_session_fixture.execute(select(ProductImage).filter(ProductImage.inspection_id.in_(delhi_insp_ids))).scalars().all()
+    mh_images = db_session_fixture.execute(select(ProductImage).filter(ProductImage.inspection_id.in_([i.id for i in mh_insps]))).scalars().all()
+    assert len(delhi_images) > 0
+    assert len(mh_images) == 0
+
+    # 3. Violations Isolation
+    delhi_viols = db_session_fixture.execute(select(Violation).filter(Violation.inspection_id.in_(delhi_insp_ids))).scalars().all()
+    mh_viols = db_session_fixture.execute(select(Violation).filter(Violation.inspection_id.in_([i.id for i in mh_insps]))).scalars().all()
+    assert len(delhi_viols) > 0
+    assert len(mh_viols) == 0
+
+    # 4. Reports Isolation
+    delhi_reports = db_session_fixture.execute(select(Report).filter(Report.inspection_id.in_(delhi_insp_ids))).scalars().all()
+    mh_reports = db_session_fixture.execute(select(Report).filter(Report.inspection_id.in_([i.id for i in mh_insps]))).scalars().all()
+    assert len(delhi_reports) > 0
+    assert len(mh_reports) == 0
+
+    # 5. Audit Log Isolation
+    delhi_audits = db_session_fixture.execute(select(AuditLog).filter_by(organisation_id=delhi_org.id)).scalars().all()
+    mh_audits = db_session_fixture.execute(select(AuditLog).filter_by(organisation_id=mh_org.id)).scalars().all()
+    assert len(delhi_audits) > 0
+    assert len(mh_audits) == 0
+
+
+def test_batch_intelligence_analytics(db_session_fixture: Session):
+    """Test 23: Verify dynamic batch intelligence metrics calculation."""
+    seed_database(db_session_fixture)
+
+    metrics = IntelligenceService.get_batch_inspection_intelligence(db_session_fixture)
+    assert metrics["total_sessions"] >= 1
+    assert metrics["total_products_screened"] >= 2
+    assert "high_priority_products" in metrics
+    assert "medium_priority_products" in metrics
+    assert "low_priority_products" in metrics
+    assert "review_required" in metrics
+    assert "needs_recapture" in metrics
+    assert "confirmed_violations" in metrics
+
+
+def test_audit_chain_tamper_detection(db_session_fixture: Session):
+    """Test 24: Verify intentional mutation of audit log record fails cryptographic verification."""
+    seed_database(db_session_fixture)
+
+    # 1. Clean verify
+    is_valid, errors, total = AuditService.verify_chain(db_session_fixture)
+    assert is_valid is True
+    assert len(errors) == 0
+    assert total >= 1
+
+    # 2. Tamper mutation
+    first_record = db_session_fixture.execute(select(AuditLog).order_by(AuditLog.event_at.asc())).scalars().first()
+    saved_after = first_record.after_jsonb
+    first_record.after_jsonb = {"tampered": True, "fake_field": "hacked"}
+    db_session_fixture.flush()
+
+    # 3. Verify must catch tamper
+    tampered_valid, tamper_errors, _ = AuditService.verify_chain(db_session_fixture)
+    assert tampered_valid is False
+    assert len(tamper_errors) >= 1
+
+    # Restore
+    first_record.after_jsonb = saved_after
+    db_session_fixture.flush()
+
+
 def test_alembic_migrations_files_exist():
-    """Test 20: Verify Alembic migration files 0001 and 0002 exist and are sequential."""
+    """Test 25: Verify Alembic migration files 0001, 0002, 0003, and 0004 exist and are sequential."""
     import os
     versions_dir = os.path.join(os.path.dirname(__file__), "..", "backend", "alembic", "versions")
     files = os.listdir(versions_dir)
     assert any(f.startswith("0001_") for f in files)
     assert any(f.startswith("0002_") for f in files)
+    assert any(f.startswith("0003_") for f in files)
+    assert any(f.startswith("0004_") for f in files)

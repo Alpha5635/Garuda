@@ -20,6 +20,7 @@ from sqlalchemy.types import JSON
 from backend.app.db.base import Base, GUID, TimestampMixin
 
 if TYPE_CHECKING:
+    from backend.app.models.organisation import Organisation
     from backend.app.models.catalog import Brand, Product
 
 
@@ -31,10 +32,23 @@ class Offender(Base, TimestampMixin):
     __tablename__ = "offenders"
 
     id: Mapped[uuid.UUID] = mapped_column(GUID, primary_key=True, default=uuid.uuid4)
+    organisation_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID,
+        ForeignKey("organisations.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+        doc="Scoped enforcement organisation",
+    )
     brand_id: Mapped[uuid.UUID] = mapped_column(
         GUID,
         ForeignKey("brands.id", ondelete="CASCADE"),
         nullable=False,
+        index=True,
+    )
+    product_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID,
+        ForeignKey("products.id", ondelete="SET NULL"),
+        nullable=True,
         index=True,
     )
     period_start: Mapped[date] = mapped_column(Date, nullable=False, index=True)
@@ -45,10 +59,13 @@ class Offender(Base, TimestampMixin):
     last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     # Relationships
+    organisation: Mapped["Organisation | None"] = relationship("Organisation")
     brand: Mapped["Brand"] = relationship("Brand", back_populates="offenders_history")
+    product: Mapped["Product | None"] = relationship("Product")
 
     __table_args__ = (
         Index("ix_offenders_brand_period", "brand_id", "period_start", "period_end"),
+        Index("ix_offenders_org_brand", "organisation_id", "brand_id"),
     )
 
     def __repr__(self) -> str:
@@ -63,22 +80,32 @@ class SyncQueue(Base, TimestampMixin):
     __tablename__ = "sync_queue"
 
     id: Mapped[uuid.UUID] = mapped_column(GUID, primary_key=True, default=uuid.uuid4)
+    organisation_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID,
+        ForeignKey("organisations.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
     device_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    client_id: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
     local_event_id: Mapped[str] = mapped_column(String(100), nullable=False)
     entity_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    entity_id: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
     payload_jsonb: Mapped[Dict[str, Any]] = mapped_column(
         JSONB().with_variant(JSON(), "sqlite"),
         nullable=False,
         doc="Offline mobile capture payload (metadata, timestamps, calibration, GPS)",
     )
+    payload_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     status: Mapped[str] = mapped_column(
         String(50),
         nullable=False,
         default="pending",
         index=True,
-        doc="Status: pending, processing, synced, failed, conflict",
+        doc="Status: queued, pending, processing, completed, synced, failed, conflict",
     )
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    retry_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     idempotency_key: Mapped[str] = mapped_column(
         String(255),
         unique=True,
@@ -93,9 +120,14 @@ class SyncQueue(Base, TimestampMixin):
     )
     processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Relationships
+    organisation: Mapped["Organisation | None"] = relationship("Organisation")
 
     __table_args__ = (
         Index("ix_sync_queue_device_status", "device_id", "status"),
+        Index("ix_sync_queue_org_status", "organisation_id", "status"),
     )
 
     def __repr__(self) -> str:
@@ -110,6 +142,12 @@ class EcommerceListing(Base, TimestampMixin):
     __tablename__ = "ecommerce_listings"
 
     id: Mapped[uuid.UUID] = mapped_column(GUID, primary_key=True, default=uuid.uuid4)
+    organisation_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID,
+        ForeignKey("organisations.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     platform: Mapped[str] = mapped_column(
         String(100),
         nullable=False,
@@ -122,6 +160,8 @@ class EcommerceListing(Base, TimestampMixin):
         index=True,
         doc="ASIN, FSN, or marketplace SKU ID",
     )
+    listing_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    title: Mapped[str | None] = mapped_column(String(500), nullable=True)
     url: Mapped[str] = mapped_column(Text, nullable=False)
     product_id: Mapped[uuid.UUID | None] = mapped_column(
         GUID,
@@ -134,6 +174,7 @@ class EcommerceListing(Base, TimestampMixin):
         nullable=True,
         doc="MinIO object key for listing HTML/rendered screenshot evidence",
     )
+    snapshot_object_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
     content_hash: Mapped[str | None] = mapped_column(
         String(64),
         nullable=True,
@@ -145,6 +186,7 @@ class EcommerceListing(Base, TimestampMixin):
         nullable=False,
     )
     seller_name: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    seller: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     availability: Mapped[str | None] = mapped_column(String(50), nullable=True)
     raw_jsonb: Mapped[Dict[str, Any]] = mapped_column(
         JSONB().with_variant(JSON(), "sqlite"),
@@ -152,13 +194,20 @@ class EcommerceListing(Base, TimestampMixin):
         default=dict,
         doc="Raw marketplace JSON payload/scraped attributes",
     )
+    raw_payload_jsonb: Mapped[Dict[str, Any]] = mapped_column(
+        JSONB().with_variant(JSON(), "sqlite"),
+        nullable=False,
+        default=dict,
+    )
 
     # Relationships
+    organisation: Mapped["Organisation | None"] = relationship("Organisation")
     product: Mapped["Product | None"] = relationship("Product", back_populates="ecommerce_listings")
 
     __table_args__ = (
         UniqueConstraint("platform", "external_listing_id", name="uq_platform_external_listing"),
         Index("ix_ecommerce_platform_seller", "platform", "seller_name"),
+        Index("ix_ecommerce_org_platform", "organisation_id", "platform"),
     )
 
     def __repr__(self) -> str:
@@ -179,6 +228,13 @@ class ModelVersion(Base, TimestampMixin):
         doc="Model name, e.g. 'PaddleOCR-PP-OCRv5', 'YOLOv8-PDP-seg', 'LayoutLMv3-LMPC'",
     )
     version: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    task: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+        index=True,
+        default="ocr",
+        doc="Model task: 'ocr', 'segmentation', 'classification', 'extraction'",
+    )
     artifact_uri: Mapped[str] = mapped_column(String(500), nullable=False)
     metrics_jsonb: Mapped[Dict[str, Any]] = mapped_column(
         JSONB().with_variant(JSON(), "sqlite"),
@@ -186,6 +242,7 @@ class ModelVersion(Base, TimestampMixin):
         default=dict,
         doc="Held-out evaluation metrics: {precision: 0.96, recall: 0.93, iou: 0.88, font_mae_mm: 0.22}",
     )
+    released_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     __table_args__ = (
@@ -194,3 +251,4 @@ class ModelVersion(Base, TimestampMixin):
 
     def __repr__(self) -> str:
         return f"<ModelVersion(id={self.id}, name='{self.name}', version='{self.version}')>"
+

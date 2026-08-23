@@ -14,6 +14,7 @@ The database architecture is designed with **19 normalized relational entities**
 erDiagram
     ORGANISATIONS ||--o{ USERS : "employs"
     ORGANISATIONS ||--o{ BRANDS : "owns/manufactures"
+    ORGANISATIONS ||--o{ INSPECTION_SESSIONS : "scopes"
     ORGANISATIONS ||--o{ INSPECTIONS : "scopes"
     ORGANISATIONS ||--o{ AUDIT_LOG : "isolates"
     ROLES ||--o{ USER_ROLES : "assigned_to"
@@ -24,6 +25,10 @@ erDiagram
     BRANDS ||--o{ OFFENDERS : "tracks_intelligence"
     PRODUCTS ||--o{ INSPECTIONS : "examined_in"
     PRODUCTS ||--o{ ECOMMERCE_LISTINGS : "listed_as"
+    INSPECTION_SESSIONS ||--o{ BATCH_IMAGES : "contains"
+    INSPECTION_SESSIONS ||--o{ INSPECTIONS : "spawns"
+    BATCH_IMAGES ||--o{ PRODUCT_DETECTIONS : "detects"
+    PRODUCT_DETECTIONS ||--o| INSPECTIONS : "links_to"
     RULE_PACKS ||--o{ RULE_VERSIONS : "contains"
     RULE_VERSIONS ||--o{ INSPECTIONS : "pinned_by"
     RULE_VERSIONS ||--o{ VIOLATIONS : "cited_in"

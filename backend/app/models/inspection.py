@@ -5,10 +5,12 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, TYPE_CHECKING
 from geoalchemy2 import Geography
 from sqlalchemy import (
+    BigInteger,
     DateTime,
     Float,
     ForeignKey,
     Index,
+    Integer,
     String,
     Text,
     func,
@@ -23,13 +25,14 @@ if TYPE_CHECKING:
     from backend.app.models.user import User
     from backend.app.models.catalog import Product
     from backend.app.models.rule import RuleVersion
+    from backend.app.models.session import InspectionSession, ProductDetection
     from backend.app.models.intelligence import ModelVersion
 
 
 class Inspection(Base, TimestampMixin):
     """
     Core inspection case record tracking package/listing/consumer compliance audits.
-    Every inspection pins exactly one immutable RuleVersion.
+    Supports both standalone single-product captures and multi-product batch sessions.
     """
     __tablename__ = "inspections"
 
@@ -39,6 +42,20 @@ class Inspection(Base, TimestampMixin):
         ForeignKey("organisations.id", ondelete="RESTRICT"),
         nullable=False,
         index=True,
+    )
+    inspection_session_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID,
+        ForeignKey("inspection_sessions.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        doc="Parent batch inspection session (NULL for standalone single inspections)",
+    )
+    product_detection_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID,
+        ForeignKey("product_detections.id", ondelete="SET NULL", use_alter=True),
+        nullable=True,
+        index=True,
+        doc="Reference to detected product item in batch image",
     )
     product_id: Mapped[uuid.UUID | None] = mapped_column(
         GUID,
@@ -50,19 +67,19 @@ class Inspection(Base, TimestampMixin):
         String(50),
         nullable=False,
         index=True,
-        doc="Inspection channel: 'package', 'ecommerce', 'consumer'",
+        doc="Inspection channel: 'package', 'batch', 'ecommerce', 'consumer'",
     )
     status: Mapped[str] = mapped_column(
         String(50),
         nullable=False,
         default="draft",
         index=True,
-        doc="Status: draft, queued, processing, review_required, completed, needs_recapture, archived",
+        doc="Status: draft, queued, processing, review_required, completed, needs_recapture, failed, archived",
     )
-    rule_version_id: Mapped[uuid.UUID] = mapped_column(
+    rule_version_id: Mapped[uuid.UUID | None] = mapped_column(
         GUID,
         ForeignKey("rule_versions.id", ondelete="RESTRICT"),
-        nullable=False,
+        nullable=True,
         index=True,
         doc="Pinned exact rule version used during this inspection",
     )
@@ -86,6 +103,8 @@ class Inspection(Base, TimestampMixin):
         nullable=True,
         doc="Geographic coordinates of inspection capture",
     )
+    lat: Mapped[float | None] = mapped_column(Float, nullable=True)
+    lon: Mapped[float | None] = mapped_column(Float, nullable=True)
     latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     district: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
@@ -111,11 +130,33 @@ class Inspection(Base, TimestampMixin):
         nullable=True,
         index=True,
     )
+    client_inspection_id: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+        index=True,
+        doc="Mobile client inspection UUID for offline sync reconciliation",
+    )
+    idempotency_key: Mapped[str | None] = mapped_column(
+        String(255),
+        unique=True,
+        nullable=True,
+        index=True,
+        doc="Deterministic idempotency key for safe client retry",
+    )
 
     # Relationships
     organisation: Mapped["Organisation"] = relationship("Organisation", back_populates="inspections")
+    session: Mapped["InspectionSession | None"] = relationship(
+        "InspectionSession",
+        back_populates="inspections",
+        foreign_keys=[inspection_session_id],
+    )
+    product_detection: Mapped["ProductDetection | None"] = relationship(
+        "ProductDetection",
+        foreign_keys=[product_detection_id],
+    )
     product: Mapped["Product | None"] = relationship("Product", back_populates="inspections")
-    rule_version: Mapped["RuleVersion"] = relationship("RuleVersion", back_populates="inspections")
+    rule_version: Mapped["RuleVersion | None"] = relationship("RuleVersion", back_populates="inspections")
     creator: Mapped["User | None"] = relationship("User", back_populates="inspections_created", foreign_keys=[created_by])
     
     images: Mapped[List["ProductImage"]] = relationship(
@@ -179,11 +220,20 @@ class ProductImage(Base, TimestampMixin):
         index=True,
         doc="SHA-256 hash of original uploaded image bytes",
     )
+    mime_type: Mapped[str | None] = mapped_column(String(50), nullable=True, default="image/jpeg")
+    size_bytes: Mapped[int | None] = mapped_column(
+        BigInteger().with_variant(Integer(), "sqlite"),
+        nullable=True,
+    )
+    width_px: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    height_px: Mapped[int | None] = mapped_column(Integer, nullable=True)
     captured_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
+    lat: Mapped[float | None] = mapped_column(Float, nullable=True)
+    lon: Mapped[float | None] = mapped_column(Float, nullable=True)
     location: Mapped[Any | None] = mapped_column(
         Geography(geometry_type="POINT", srid=4326, spatial_index=False).with_variant(
             String(100), "sqlite"
@@ -491,7 +541,12 @@ class ReviewAction(Base):
         String(50),
         nullable=False,
         index=True,
-        doc="Action: accept, correct, dismiss, waive, request_recapture",
+        doc="Action: accept_ocr, correct_ocr, accept_violation, reject_violation, waive_violation, request_recapture, accept, correct, dismiss, waive",
+    )
+    original_value_jsonb: Mapped[Dict[str, Any] | None] = mapped_column(
+        JSONB().with_variant(JSON(), "sqlite"),
+        nullable=True,
+        doc="Original value snapshot extracted by model prior to review",
     )
     corrected_value_jsonb: Mapped[Dict[str, Any] | None] = mapped_column(
         JSONB().with_variant(JSON(), "sqlite"),

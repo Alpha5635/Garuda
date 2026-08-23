@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from backend.app.models.user import User
     from backend.app.models.catalog import Brand
     from backend.app.models.inspection import Inspection
+    from backend.app.models.session import InspectionSession
     from backend.app.models.audit import AuditLog
 
 
@@ -36,6 +37,13 @@ class Organisation(Base, TimestampMixin):
         index=True,
         doc="ISO 3166-2:IN state code, e.g., 'DL', 'MH', 'KA', 'UP'",
     )
+    code: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
+        unique=True,
+        index=True,
+        doc="Unique organisation code, e.g. 'DOCA_CENTRAL', 'DL_METRO'",
+    )
     status: Mapped[str] = mapped_column(
         String(50),
         nullable=False,
@@ -53,9 +61,14 @@ class Organisation(Base, TimestampMixin):
     brands: Mapped[List["Brand"]] = relationship(
         "Brand",
         back_populates="manufacturer_org",
+        foreign_keys="[Brand.manufacturer_org_id]",
     )
     inspections: Mapped[List["Inspection"]] = relationship(
         "Inspection",
+        back_populates="organisation",
+    )
+    inspection_sessions: Mapped[List["InspectionSession"]] = relationship(
+        "InspectionSession",
         back_populates="organisation",
     )
     audit_logs: Mapped[List["AuditLog"]] = relationship(

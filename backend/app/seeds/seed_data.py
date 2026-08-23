@@ -14,6 +14,11 @@ from backend.app.models.role import Role, UserRole
 from backend.app.models.user import User
 from backend.app.models.catalog import Brand, Product
 from backend.app.models.rule import RulePack, RuleVersion
+from backend.app.models.session import (
+    InspectionSession,
+    BatchImage,
+    ProductDetection,
+)
 from backend.app.models.inspection import (
     Inspection,
     ProductImage,
@@ -52,6 +57,7 @@ def seed_database(session: Session) -> None:
     doca_central = Organisation(
         id=uuid.UUID("11111111-1111-1111-1111-111111111111"),
         name="DoCA Central Enforcement",
+        code="DOCA_CENTRAL",
         type="DoCA",
         state_code=None,
         status="active",
@@ -59,6 +65,7 @@ def seed_database(session: Session) -> None:
     delhi_dept = Organisation(
         id=uuid.UUID("22222222-2222-2222-2222-222222222222"),
         name="Delhi Legal Metrology Department",
+        code="DL_METRO",
         type="state",
         state_code="DL",
         status="active",
@@ -66,6 +73,7 @@ def seed_database(session: Session) -> None:
     mh_dept = Organisation(
         id=uuid.UUID("33333333-3333-3333-3333-333333333333"),
         name="Maharashtra Legal Metrology Department",
+        code="MH_METRO",
         type="state",
         state_code="MH",
         status="active",
@@ -73,6 +81,7 @@ def seed_database(session: Session) -> None:
     itc_mfg = Organisation(
         id=uuid.UUID("44444444-4444-4444-4444-444444444444"),
         name="ITC Limited - Foods Division",
+        code="ITC_LTD",
         type="manufacturer",
         state_code="WB",
         status="active",
@@ -80,6 +89,7 @@ def seed_database(session: Session) -> None:
     blinkit_platform = Organisation(
         id=uuid.UUID("55555555-5555-5555-5555-555555555555"),
         name="Blinkit QuickCommerce Pvt Ltd",
+        code="BLINKIT",
         type="platform",
         state_code="DL",
         status="active",
@@ -87,6 +97,7 @@ def seed_database(session: Session) -> None:
     demo_lab = Organisation(
         id=uuid.UUID("66666666-6666-6666-6666-666666666666"),
         name="SIH Evaluation Demonstration Lab",
+        code="SIH_DEMO_LAB",
         type="demo",
         state_code="DL",
         status="active",
@@ -96,19 +107,20 @@ def seed_database(session: Session) -> None:
 
     # 2. Roles
     roles_data = [
-        ("super_admin", "System Governance & Audit Verifier", {"all": True, "audit_verify": True}),
-        ("rule_admin", "Legal Metrology Rule Pack Author", {"rule_author": True, "rule_approve": True}),
-        ("officer", "Field Metrology Officer", {"inspect": True, "sign_report": True, "resolve_violation": True}),
-        ("reviewer", "Human-in-the-Loop OCR Reviewer", {"review_queue": True, "correct_field": True}),
-        ("manufacturer", "Manufacturer Self-Check Operator", {"self_check": True, "view_own_catalog": True}),
-        ("consumer", "Citizen Scan & Lead Reporter", {"consumer_scan": True, "view_status": True}),
-        ("analyst", "Enforcement Intelligence Analyst", {"view_heatmaps": True, "view_offenders": True, "export_kpi": True}),
+        ("super_admin", "Super Administrator", "System Governance & Audit Verifier", {"all": True, "audit_verify": True}),
+        ("rule_admin", "Rule Administrator", "Legal Metrology Rule Pack Author", {"rule_author": True, "rule_approve": True}),
+        ("officer", "Legal Metrology Officer", "Field Metrology Officer", {"inspect": True, "sign_report": True, "resolve_violation": True}),
+        ("reviewer", "OCR Reviewer", "Human-in-the-Loop OCR Reviewer", {"review_queue": True, "correct_field": True}),
+        ("manufacturer", "Manufacturer Self-Checker", "Manufacturer Self-Check Operator", {"self_check": True, "view_own_catalog": True}),
+        ("consumer", "Citizen Consumer", "Citizen Scan & Lead Reporter", {"consumer_scan": True, "view_status": True}),
+        ("analyst", "Enforcement Analyst", "Enforcement Intelligence Analyst", {"view_heatmaps": True, "view_offenders": True, "export_kpi": True}),
     ]
     roles_map = {}
-    for code, desc, perms in roles_data:
+    for code, name, desc, perms in roles_data:
         role = Role(
             id=uuid.uuid4(),
             code=code,
+            name=name,
             description=desc,
             permissions_jsonb=perms,
         )
@@ -124,7 +136,9 @@ def seed_database(session: Session) -> None:
         email="superadmin@doca.gov.in",
         phone="+91-11-2338-0001",
         password_hash=pwd_hash,
+        name="Dr. Rajesh Kumar",
         full_name="Dr. Rajesh Kumar (Super Admin)",
+        is_active=True,
         status="active",
     )
     user_rule_admin = User(
@@ -133,7 +147,9 @@ def seed_database(session: Session) -> None:
         email="ruleadmin@doca.gov.in",
         phone="+91-11-2338-0002",
         password_hash=pwd_hash,
+        name="Adv. Meera Sen",
         full_name="Adv. Meera Sen (Legal Metrology Legal Counsel)",
+        is_active=True,
         status="active",
     )
     user_officer = User(
@@ -142,7 +158,9 @@ def seed_database(session: Session) -> None:
         email="officer.delhi@gov.in",
         phone="+91-98110-12345",
         password_hash=pwd_hash,
+        name="Inspector Vikram Sharma",
         full_name="Inspector Vikram Sharma",
+        is_active=True,
         status="active",
     )
     user_reviewer = User(
@@ -151,7 +169,9 @@ def seed_database(session: Session) -> None:
         email="reviewer.delhi@gov.in",
         phone="+91-98110-54321",
         password_hash=pwd_hash,
+        name="Ananya Verma",
         full_name="Ananya Verma (Verification Specialist)",
+        is_active=True,
         status="active",
     )
     user_mfg = User(
@@ -160,7 +180,9 @@ def seed_database(session: Session) -> None:
         email="compliance@itc.in",
         phone="+91-33-2288-0000",
         password_hash=pwd_hash,
+        name="Sunil Natarajan",
         full_name="Sunil Natarajan (QA / Packaging Lead)",
+        is_active=True,
         status="active",
     )
     user_analyst = User(
@@ -169,7 +191,9 @@ def seed_database(session: Session) -> None:
         email="analyst@doca.gov.in",
         phone="+91-11-2338-0005",
         password_hash=pwd_hash,
+        name="Pooja Deshmukh",
         full_name="Pooja Deshmukh (Data Analyst)",
+        is_active=True,
         status="active",
     )
     user_consumer = User(
@@ -178,7 +202,9 @@ def seed_database(session: Session) -> None:
         email="citizen@gmail.com",
         phone="+91-99999-88888",
         password_hash=pwd_hash,
+        name="Rohit Verma",
         full_name="Rohit Verma (Consumer Citizen)",
+        is_active=True,
         status="active",
     )
     session.add_all([user_super, user_rule_admin, user_officer, user_reviewer, user_mfg, user_analyst, user_consumer])
@@ -203,30 +229,45 @@ def seed_database(session: Session) -> None:
     brand_aashirvaad = Brand(
         id=uuid.UUID("b1111111-1111-1111-1111-111111111111"),
         canonical_name="Aashirvaad",
+        name="Aashirvaad",
+        normalized_name="aashirvaad",
+        organisation_id=itc_mfg.id,
         aliases_jsonb=["Aashirvad", "Ashirwad", "Aashirvaad Atta", "आशीर्वाद"],
         manufacturer_org_id=itc_mfg.id,
     )
     brand_fortune = Brand(
         id=uuid.UUID("b2222222-2222-2222-2222-222222222222"),
         canonical_name="Fortune",
+        name="Fortune",
+        normalized_name="fortune",
+        organisation_id=None,
         aliases_jsonb=["Fortune Oil", "Fortune Foods", "Fortun", "फॉर्च्यून"],
         manufacturer_org_id=None,
     )
     brand_tata = Brand(
         id=uuid.UUID("b3333333-3333-3333-3333-333333333333"),
         canonical_name="Tata Sampann",
+        name="Tata Sampann",
+        normalized_name="tata sampann",
+        organisation_id=None,
         aliases_jsonb=["Tata Sampan", "Sampann", "Tata Dal", "टाटा सम्पन्न"],
         manufacturer_org_id=None,
     )
     brand_imported = Brand(
         id=uuid.UUID("b4444444-4444-4444-4444-444444444444"),
         canonical_name="Swiss Chocolatier Premium",
+        name="Swiss Chocolatier Premium",
+        normalized_name="swiss chocolatier premium",
+        organisation_id=None,
         aliases_jsonb=["SwissChoc", "AlpenGold Swiss"],
         manufacturer_org_id=None,
     )
     brand_glow = Brand(
         id=uuid.UUID("b5555555-5555-5555-5555-555555555555"),
         canonical_name="Glow & Care Herbal",
+        name="Glow & Care Herbal",
+        normalized_name="glow & care herbal",
+        organisation_id=None,
         aliases_jsonb=["GlowCare", "Glow Herbal"],
         manufacturer_org_id=None,
     )
@@ -237,6 +278,7 @@ def seed_database(session: Session) -> None:
     prod_atta = Product(
         id=uuid.UUID("c1111111-1111-1111-1111-111111111111"),
         brand_id=brand_aashirvaad.id,
+        name="Aashirvaad Whole Wheat Atta 5kg",
         generic_name="Whole Wheat Atta (Chakki Fresh)",
         sku="AASH-WHEAT-5KG",
         category="food_staples",
@@ -246,6 +288,7 @@ def seed_database(session: Session) -> None:
     prod_oil = Product(
         id=uuid.UUID("c2222222-2222-2222-2222-222222222222"),
         brand_id=brand_fortune.id,
+        name="Fortune Refined Sunflower Oil 1L",
         generic_name="Refined Sunflower Oil",
         sku="FORT-SUN-1L",
         category="edible_oil",
@@ -255,20 +298,22 @@ def seed_database(session: Session) -> None:
     prod_dal = Product(
         id=uuid.UUID("c3333333-3333-3333-3333-333333333333"),
         brand_id=brand_tata.id,
+        name="Tata Sampann Unpolished Toor Dal 1kg",
         generic_name="Unpolished Toor Dal",
         sku="TATA-TOOR-1KG",
         category="food_staples",
         is_imported=False,
-        metadata_jsonb={"standard_net_quantity": "1 kg"},
+        metadata_jsonb={"standard_net_quantity": "1 kg", "grade": "Grade A"},
     )
     prod_choc = Product(
         id=uuid.UUID("c4444444-4444-4444-4444-444444444444"),
         brand_id=brand_imported.id,
-        generic_name="Hazelnut Milk Praline Chocolate",
-        sku="SWISS-HAZEL-250G",
+        name="Swiss Chocolatier Dark Chocolate 100g",
+        generic_name="Dark Chocolate Bar 70% Cocoa",
+        sku="SWISS-DARK-100G",
         category="food_staples",
         is_imported=True,
-        metadata_jsonb={"country_of_origin": "Switzerland", "importer": "Global Gourmet Imports Pvt Ltd"},
+        metadata_jsonb={"standard_net_quantity": "100 g", "country_of_origin": "Switzerland"},
     )
     session.add_all([prod_atta, prod_oil, prod_dal, prod_choc])
     session.flush()
@@ -632,6 +677,230 @@ def seed_database(session: Session) -> None:
         },
     )
     session.add(ecom_listing)
+
+    # Case 4: Glare / Recapture Case (Reflective Foil Package)
+    insp_glare = Inspection(
+        id=uuid.UUID("f4444444-4444-4444-4444-444444444444"),
+        organisation_id=delhi_dept.id,
+        product_id=prod_oil.id,
+        channel="package",
+        status="needs_recapture",
+        rule_version_id=rule_version_2026.id,
+        score=None,
+        latitude=28.6200,
+        longitude=77.2100,
+        district="Central Delhi",
+        state_code="DL",
+        officer_notes="Excessive overhead light glare over the Net Quantity and MRP declaration areas. Recapture required with diffuse lighting.",
+        captured_at=datetime(2026, 2, 14, 15, 0, 0, tzinfo=timezone.utc),
+        created_by=user_officer.id,
+    )
+    session.add(insp_glare)
+    session.flush()
+
+    img_glare = ProductImage(
+        id=uuid.UUID("f4444444-aaaa-4444-4444-444444444444"),
+        inspection_id=insp_glare.id,
+        object_key="inspections/f4444444-4444-4444-4444-444444444444/originals/glare_defect_oil.jpg",
+        sha256="4b8e0d1f3a5c7b9d1e3f5a7b9c1d3e5f7a9b1c3d5e7f2a4c6b8e0d1f3a5c7b9d",
+        mime_type="image/jpeg",
+        size_bytes=3120000,
+        width_px=3024,
+        height_px=4032,
+        captured_at=datetime(2026, 2, 14, 15, 0, 0, tzinfo=timezone.utc),
+        quality_jsonb={"blur_score": 110.0, "glare_ratio": 0.42, "resolution_ok": True, "needs_recapture": True},
+        transform_jsonb={},
+        calibration_jsonb={"mode": "aruco_50mm", "px_per_mm": 15.0, "confidence": 0.82},
+        status="needs_recapture",
+    )
+    session.add(img_glare)
+
+    rev_glare = ReviewAction(
+        id=uuid.uuid4(),
+        inspection_id=insp_glare.id,
+        field_id=None,
+        violation_id=None,
+        reviewer_id=user_reviewer.id,
+        action="request_recapture",
+        original_value_jsonb=None,
+        corrected_value_jsonb=None,
+        reason="Heavy packaging glare prevents reliable OCR parsing. Request officer to re-photograph using diffuse lighting.",
+        created_at=datetime(2026, 2, 14, 15, 10, 0, tzinfo=timezone.utc),
+    )
+    session.add(rev_glare)
+
+    # Case 5: Hindi / Mixed-Language Multi-Lingual Atta Pack (Rule 6 Multi-Lingual Compliance)
+    insp_hindi = Inspection(
+        id=uuid.UUID("f5555555-5555-5555-5555-555555555555"),
+        organisation_id=delhi_dept.id,
+        product_id=prod_atta.id,
+        channel="package",
+        status="completed",
+        rule_version_id=rule_version_2026.id,
+        score=100.0,
+        score_status="verified",
+        latitude=28.6500,
+        longitude=77.2300,
+        district="North Delhi",
+        state_code="DL",
+        officer_notes="Dual language Hindi/English front declaration inspected. Full compliance with Rule 6.",
+        captured_at=datetime(2026, 2, 15, 11, 0, 0, tzinfo=timezone.utc),
+        created_by=user_officer.id,
+    )
+    session.add(insp_hindi)
+    session.flush()
+
+    img_hindi = ProductImage(
+        id=uuid.UUID("f5555555-aaaa-5555-5555-555555555555"),
+        inspection_id=insp_hindi.id,
+        object_key="inspections/f5555555-5555-5555-5555-555555555555/originals/aashirvaad_hindi_5kg.jpg",
+        sha256="5c7b9d1e3f5a7b9c1d3e5f7a9b1c3d5e7f2a4c6b8e0d1f3a5c7b9d1e3f5a7b9c",
+        mime_type="image/jpeg",
+        size_bytes=3450000,
+        width_px=3024,
+        height_px=4032,
+        captured_at=datetime(2026, 2, 15, 11, 0, 0, tzinfo=timezone.utc),
+        quality_jsonb={"blur_score": 340.0, "glare_ratio": 0.008, "resolution_ok": True, "needs_recapture": False},
+        transform_jsonb={"homography_matrix": [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]},
+        calibration_jsonb={"mode": "aruco_50mm", "px_per_mm": 18.0, "confidence": 0.98},
+        status="valid",
+    )
+    session.add(img_hindi)
+
+    field_hindi_netq = ExtractedField(
+        id=uuid.UUID("f5555555-cccc-5555-5555-555555555555"),
+        inspection_id=insp_hindi.id,
+        image_id=img_hindi.id,
+        field_type="net_quantity",
+        raw_text="शुद्ध चक्की आटा ५ कि.ग्रा. / Net Quantity: 5 kg",
+        normalized_jsonb={"value": 5, "unit": "kg", "measured_height_mm": 6.2, "required_min_mm": 4.0},
+        bbox_jsonb={"x": 0.20, "y": 0.75, "w": 0.30, "h": 0.06},
+        polygon_jsonb={"vertices": [[200, 750], [500, 750], [500, 810], [200, 810]]},
+        confidence=0.97,
+        language="hin",
+        model_version="PaddleOCR-PP-OCRv5-Multilingual",
+        model_version_id=model_paddle.id,
+        review_status="confirmed",
+    )
+    session.add(field_hindi_netq)
+
+    # Case 6: Imported Commodity (Swiss Chocolatier - Country of Origin & Importer Check)
+    insp_imported = Inspection(
+        id=uuid.UUID("f6666666-6666-6666-6666-666666666666"),
+        organisation_id=delhi_dept.id,
+        product_id=prod_choc.id,
+        channel="package",
+        status="completed",
+        rule_version_id=rule_version_2026.id,
+        score=100.0,
+        score_status="verified",
+        latitude=28.5500,
+        longitude=77.2000,
+        district="South Delhi",
+        state_code="DL",
+        officer_notes="Imported dark chocolate bar. Rule 6(1) Country of Origin ('Switzerland') and Importer address properly stickered.",
+        captured_at=datetime(2026, 2, 15, 12, 30, 0, tzinfo=timezone.utc),
+        created_by=user_officer.id,
+    )
+    session.add(insp_imported)
+    session.flush()
+
+    img_imported = ProductImage(
+        id=uuid.UUID("f6666666-aaaa-6666-6666-666666666666"),
+        inspection_id=insp_imported.id,
+        object_key="inspections/f6666666-6666-6666-6666-666666666666/originals/swiss_choc_back.jpg",
+        sha256="6d3e5f7a9b1c3d5e7f2a4c6b8e0d1f3a5c7b9d1e3f5a7b9c1d3e5f7a9b1c3d5e",
+        mime_type="image/jpeg",
+        size_bytes=2890000,
+        width_px=3024,
+        height_px=4032,
+        captured_at=datetime(2026, 2, 15, 12, 30, 0, tzinfo=timezone.utc),
+        quality_jsonb={"blur_score": 305.0, "glare_ratio": 0.012, "resolution_ok": True, "needs_recapture": False},
+        transform_jsonb={"homography_matrix": [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]},
+        calibration_jsonb={"mode": "aruco_50mm", "px_per_mm": 17.5, "confidence": 0.96},
+        status="valid",
+    )
+    session.add(img_imported)
+
+    field_imported_origin = ExtractedField(
+        id=uuid.UUID("f6666666-cccc-6666-6666-666666666666"),
+        inspection_id=insp_imported.id,
+        image_id=img_imported.id,
+        field_type="origin",
+        raw_text="Country of Origin: Switzerland. Imported & Marketed by: Global Gourmet Imports Pvt Ltd, Mumbai-400001.",
+        normalized_jsonb={"country_of_origin": "Switzerland", "importer": "Global Gourmet Imports Pvt Ltd", "city": "Mumbai", "pincode": "400001"},
+        bbox_jsonb={"x": 0.10, "y": 0.30, "w": 0.80, "h": 0.15},
+        polygon_jsonb={"vertices": [[100, 300], [900, 300], [900, 450], [100, 450]]},
+        confidence=0.98,
+        language="eng",
+        model_version="PaddleOCR-PP-OCRv5-Multilingual",
+        model_version_id=model_paddle.id,
+        review_status="confirmed",
+    )
+    session.add(field_imported_origin)
+
+    # 9B. Batch Inspection Session, Batch Image, and Product Detections (Shelf Inspection)
+    batch_session = InspectionSession(
+        id=uuid.UUID("71111111-1111-1111-1111-111111111111"),
+        organisation_id=delhi_dept.id,
+        client_session_id="MOB-SESS-20260215-001",
+        created_by=user_officer.id,
+        channel="batch",
+        status="complete",
+        lat=28.6139,
+        lon=77.2090,
+        gps_accuracy_m=4.2,
+        captured_at=datetime(2026, 2, 15, 14, 0, 0, tzinfo=timezone.utc),
+        idempotency_key="DELHI_OFFICER_BATCH_SESS_20260215_001",
+    )
+    session.add(batch_session)
+    session.flush()
+
+    batch_img = BatchImage(
+        id=uuid.UUID("72222222-1111-1111-1111-111111111111"),
+        session_id=batch_session.id,
+        object_key="sessions/71111111-1111-1111-1111-111111111111/batches/shelf_scan_01.jpg",
+        sha256="5a7b9c1d3e5f7a9b1c3d5e7f2a4c6b8e0d1f3a5c7b9d1e3f5a7b9c1d3e5f7a9b",
+        mime_type="image/jpeg",
+        size_bytes=4250000,
+        width_px=3840,
+        height_px=2160,
+        captured_at=datetime(2026, 2, 15, 14, 0, 0, tzinfo=timezone.utc),
+        lat=28.6139,
+        lon=77.2090,
+        gps_accuracy_m=4.2,
+        quality_jsonb={"blur_score": 310.0, "glare_ratio": 0.015, "lighting_ok": True},
+        transform_jsonb={"shelf_rectification_matrix": [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]},
+        calibration_jsonb={"mode": "aruco_50mm", "px_per_mm": 12.5, "confidence": 0.94},
+        status="valid",
+    )
+    session.add(batch_img)
+    session.flush()
+
+    det1 = ProductDetection(
+        id=uuid.UUID("73333333-1111-1111-1111-111111111111"),
+        batch_image_id=batch_img.id,
+        inspection_id=None,
+        detection_index=0,
+        bbox_jsonb={"x": 0.10, "y": 0.20, "w": 0.25, "h": 0.60},
+        polygon_jsonb={"vertices": [[100, 200], [350, 200], [350, 800], [100, 800]]},
+        crop_object_key="sessions/71111111-1111-1111-1111-111111111111/crops/det_0.jpg",
+        detection_confidence=0.98,
+        status="detected",
+    )
+    det2 = ProductDetection(
+        id=uuid.UUID("74444444-1111-1111-1111-111111111111"),
+        batch_image_id=batch_img.id,
+        inspection_id=None,
+        detection_index=1,
+        bbox_jsonb={"x": 0.40, "y": 0.20, "w": 0.25, "h": 0.60},
+        polygon_jsonb={"vertices": [[400, 200], [650, 200], [650, 800], [400, 800]]},
+        crop_object_key="sessions/71111111-1111-1111-1111-111111111111/crops/det_1.jpg",
+        detection_confidence=0.96,
+        status="detected",
+    )
+    session.add_all([det1, det2])
+    session.flush()
 
     # 10. Reports
     report_compliant = Report(

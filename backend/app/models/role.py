@@ -35,6 +35,12 @@ class Role(Base, TimestampMixin):
         index=True,
         doc="Unique role code: super_admin, rule_admin, officer, reviewer, manufacturer, consumer, analyst",
     )
+    name: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
+        index=True,
+        doc="Human-readable role name / alias for code",
+    )
     description: Mapped[str | None] = mapped_column(String(255), nullable=True)
     permissions_jsonb: Mapped[Dict[str, Any]] = mapped_column(
         JSONB().with_variant(JSON(), "sqlite"),
@@ -56,7 +62,7 @@ class Role(Base, TimestampMixin):
 
 class UserRole(Base):
     """
-    Join table linking Users to Roles scoped within an Organisation context.
+    Join table linking Users to Roles, optionally scoped within an Organisation context.
     Allows an officer to act as a reviewer without role sprawl.
     """
     __tablename__ = "user_roles"
@@ -74,10 +80,10 @@ class UserRole(Base):
         nullable=False,
         index=True,
     )
-    organisation_id: Mapped[uuid.UUID] = mapped_column(
+    organisation_id: Mapped[uuid.UUID | None] = mapped_column(
         GUID,
         ForeignKey("organisations.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
         index=True,
     )
     created_at: Mapped[datetime] = mapped_column(
@@ -90,7 +96,7 @@ class UserRole(Base):
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="user_roles")
     role: Mapped["Role"] = relationship("Role", back_populates="user_roles")
-    organisation: Mapped["Organisation"] = relationship("Organisation")
+    organisation: Mapped["Organisation | None"] = relationship("Organisation")
 
     __table_args__ = (
         UniqueConstraint("user_id", "role_id", "organisation_id", name="uq_user_role_org"),

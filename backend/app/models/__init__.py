@@ -14,6 +14,11 @@ from backend.app.models.inspection import (
     Report,
     ReviewAction,
 )
+from backend.app.models.session import (
+    InspectionSession,
+    BatchImage,
+    ProductDetection,
+)
 from backend.app.models.audit import AuditLog
 from backend.app.models.intelligence import (
     Offender,
@@ -34,6 +39,9 @@ __all__ = [
     "Product",
     "RulePack",
     "RuleVersion",
+    "InspectionSession",
+    "BatchImage",
+    "ProductDetection",
     "Inspection",
     "ProductImage",
     "ExtractedField",
