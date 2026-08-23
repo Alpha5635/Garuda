@@ -1,5 +1,7 @@
 # Python cache & bytecode
 __pycache__/
+*.py[cod]
+*$py.class
 *.pyc
 *.pyo
 *.pyd
@@ -8,6 +10,9 @@ __pycache__/
 # Environment files
 .env
 !.env.example
+.venv
+env/
+venv/
 
 # OS / Editor files
 .DS_Store
@@ -18,3 +23,11 @@ Thumbs.db
 # Local nested clones / subfolders
 Garuda/
 Garuda-1/
+
+# Local Storage / Testing DBs
+backend/storage_data/
+storage_data/
+*.db
+*.sqlite3
+backend/tests/test_app.db
+test_app.db

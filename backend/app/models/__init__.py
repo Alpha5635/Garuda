@@ -2,6 +2,8 @@ from app.models.base import Base, TimestampMixin
 from app.models.user import User, UserRole
 from app.models.organisation import Organisation
 from app.models.inspection import Inspection, InspectionStatus
+from app.models.inspection_session import InspectionSession, SessionStatus
+from app.models.product_detection import ProductDetection, DetectionStatus
 from app.models.image import Image
 from app.models.job import ProcessingJob, JobState
 from app.models.normalization import NormalizedField
@@ -21,6 +23,10 @@ __all__ = [
     "Organisation",
     "Inspection",
     "InspectionStatus",
+    "InspectionSession",
+    "SessionStatus",
+    "ProductDetection",
+    "DetectionStatus",
     "Image",
     "ProcessingJob",
     "JobState",

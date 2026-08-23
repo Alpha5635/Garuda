@@ -20,3 +20,4 @@ class Organisation(Base, TimestampMixin):
 
     users = relationship("User", back_populates="organisation")
     inspections = relationship("Inspection", back_populates="organisation")
+    inspection_sessions = relationship("InspectionSession", back_populates="organisation")

@@ -36,3 +36,4 @@ class User(Base, TimestampMixin):
 
     organisation = relationship("Organisation", back_populates="users")
     inspections = relationship("Inspection", back_populates="officer")
+    inspection_sessions = relationship("InspectionSession", back_populates="inspector")

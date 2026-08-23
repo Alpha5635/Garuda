@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
-from app.api.v1 import auth, inspections, images, jobs, calibration, rules, violations, reviews, reports, ecommerce, audit, search, dashboard, rule_admin
+from app.api.v1 import auth, inspections, images, jobs, calibration, rules, violations, reviews, reports, ecommerce, audit, search, dashboard, rule_admin, inspection_sessions
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -23,6 +23,7 @@ app.add_middleware(
 # Include API V1 Routers
 app.include_router(auth.router, prefix=settings.API_V1_STR)
 app.include_router(inspections.router, prefix=settings.API_V1_STR)
+app.include_router(inspection_sessions.router, prefix=settings.API_V1_STR)
 app.include_router(images.router, prefix=settings.API_V1_STR)
 app.include_router(jobs.router, prefix=settings.API_V1_STR)
 app.include_router(calibration.router, prefix=settings.API_V1_STR)

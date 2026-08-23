@@ -14,10 +14,17 @@ class Image(Base, TimestampMixin):
         primary_key=True,
         default=uuid.uuid4
     )
-    inspection_id: Mapped[uuid.UUID] = mapped_column(
+    inspection_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("inspections.id", ondelete="CASCADE"),
-        nullable=False
+        ForeignKey("inspections.id", ondelete="CASCADE", use_alter=True),
+        nullable=True,
+        index=True
+    )
+    session_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("inspection_sessions.id", ondelete="CASCADE", use_alter=True),
+        nullable=True,
+        index=True
     )
     object_key: Mapped[str] = mapped_column(String(500), nullable=False)
     original_filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
@@ -32,4 +39,6 @@ class Image(Base, TimestampMixin):
     exif_metadata: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     inspection = relationship("Inspection", back_populates="images")
+    session = relationship("InspectionSession", back_populates="images")
+    detections = relationship("ProductDetection", back_populates="image", cascade="all, delete-orphan")
     jobs = relationship("ProcessingJob", back_populates="image")

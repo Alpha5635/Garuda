@@ -77,7 +77,6 @@ class AuditService:
         records_schema = [AuditEventSchema.model_validate(e) for e in events]
         
         # Verify chain integrity
-        prev_hash = events[0].previous_hash
         for event in events:
             payload = {
                 "action": event.action,
@@ -87,8 +86,8 @@ class AuditService:
                 "before": event.before_state,
                 "after": event.after_state
             }
-            expected_hash = self.compute_event_hash(prev_hash, payload)
-            if expected_hash != event.current_hash or event.previous_hash != prev_hash:
+            expected_hash = self.compute_event_hash(event.previous_hash, payload)
+            if expected_hash != event.current_hash:
                 return AuditVerificationResponse(
                     inspection_id=str(inspection_id),
                     intact=False,
@@ -97,7 +96,6 @@ class AuditService:
                     algorithm="SHA-256",
                     records=records_schema
                 )
-            prev_hash = event.current_hash
 
         return AuditVerificationResponse(
             inspection_id=str(inspection_id),

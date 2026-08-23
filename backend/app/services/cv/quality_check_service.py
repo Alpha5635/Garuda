@@ -25,7 +25,7 @@ class QualityCheckService:
         self.min_width = min_width
         self.min_height = min_height
 
-    def evaluate_image(self, image_bytes: bytes) -> QualityCheckResult:
+    def evaluate_image(self, image_bytes: bytes, is_crop: bool = False) -> QualityCheckResult:
         nparr = np.frombuffer(image_bytes, np.uint8)
         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
@@ -38,47 +38,50 @@ class QualityCheckService:
             )
 
         height, width = img.shape[:2]
+        effective_min_w = 40 if is_crop else self.min_width
+        effective_min_h = 40 if is_crop else self.min_height
 
         # 1. Resolution Check
-        if width < self.min_width or height < self.min_height:
+        if width < effective_min_w or height < effective_min_h:
             return QualityCheckResult(
                 is_usable=False,
                 status="needs_recapture",
                 reason="low_resolution",
-                metrics={"width": width, "height": height, "min_width": self.min_width, "min_height": self.min_height}
+                metrics={"width": width, "height": height, "min_width": effective_min_w, "min_height": effective_min_h}
             )
 
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
         # 2. Blur Detection (Laplacian Variance)
         laplacian_var = float(cv2.Laplacian(gray, cv2.CV_64F).var())
-        if laplacian_var < self.blur_threshold:
+        effective_blur_thresh = 10.0 if is_crop else self.blur_threshold
+        if laplacian_var < effective_blur_thresh:
             return QualityCheckResult(
                 is_usable=False,
                 status="needs_recapture",
                 reason="blur",
                 metrics={
                     "laplacian_variance": laplacian_var,
-                    "blur_threshold": self.blur_threshold,
+                    "blur_threshold": effective_blur_thresh,
                     "width": width,
                     "height": height
                 }
             )
 
         # 3. Glare Detection (Excessive Bright Highlights)
-        # Ratio of pixels with lightness > 240
         glare_pixels = np.sum(gray >= 240)
         total_pixels = width * height
         glare_ratio = float(glare_pixels / total_pixels)
+        effective_glare_thresh = 0.98 if is_crop else self.glare_threshold
 
-        if glare_ratio > self.glare_threshold:
+        if glare_ratio > effective_glare_thresh:
             return QualityCheckResult(
                 is_usable=False,
                 status="needs_recapture",
                 reason="glare",
                 metrics={
                     "glare_ratio": glare_ratio,
-                    "glare_threshold": self.glare_threshold,
+                    "glare_threshold": effective_glare_thresh,
                     "laplacian_variance": laplacian_var
                 }
             )

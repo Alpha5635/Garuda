@@ -5,6 +5,8 @@ import pytest
 import asyncio
 from typing import AsyncGenerator
 from httpx import AsyncClient, ASGITransport
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -12,6 +14,7 @@ from sqlalchemy.pool import StaticPool
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from app.workers.celery_app import celery_app
+from app.workers import tasks
 from app.models.base import Base
 from app.models.user import User, UserRole
 from app.services.auth_service import AuthService
@@ -22,15 +25,26 @@ from app.main import app
 celery_app.conf.task_always_eager = True
 celery_app.conf.task_eager_propagates = True
 
-# Test SQLite In-Memory Database
-TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+# Test SQLite Database
+DB_FILE = os.path.abspath(os.path.join(os.path.dirname(__file__), "test_app.db"))
+TEST_ASYNC_DATABASE_URL = f"sqlite+aiosqlite:///{DB_FILE}"
+TEST_SYNC_DATABASE_URL = f"sqlite:///{DB_FILE}"
+
+from sqlalchemy.pool import NullPool
 
 test_engine = create_async_engine(
-    TEST_DATABASE_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
+    TEST_ASYNC_DATABASE_URL,
+    connect_args={"check_same_thread": False, "timeout": 30},
+    poolclass=NullPool,
 )
+test_sync_engine = create_engine(
+    TEST_SYNC_DATABASE_URL,
+    connect_args={"check_same_thread": False, "timeout": 30},
+    poolclass=NullPool,
+)
+
 TestingSessionLocal = async_sessionmaker(test_engine, expire_on_commit=False)
+tasks.sync_session_factory = sessionmaker(bind=test_sync_engine, autoflush=False, autocommit=False)
 
 
 import pytest_asyncio
@@ -44,12 +58,9 @@ def event_loop():
 
 @pytest_asyncio.fixture(autouse=True)
 async def setup_db():
-    async with test_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    Base.metadata.create_all(bind=test_sync_engine)
     yield
-    async with test_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-
+    Base.metadata.drop_all(bind=test_sync_engine)
 
 
 async def override_get_db() -> AsyncGenerator[AsyncSession, None]:
@@ -77,7 +88,7 @@ async def test_user():
         pw_hash = AuthService.hash_password("TestPassword@123")
         user = User(
             id=uuid.uuid4(),
-            email="testofficer@lm.gov.in",
+            email=f"testofficer_{uuid.uuid4().hex[:6]}@lm.gov.in",
             password_hash=pw_hash,
             name="Test Officer",
             role=UserRole.OFFICER.value

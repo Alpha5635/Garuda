@@ -13,10 +13,16 @@ class ReportMetadata(Base, TimestampMixin):
         primary_key=True,
         default=uuid.uuid4
     )
-    inspection_id: Mapped[uuid.UUID] = mapped_column(
+    inspection_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("inspections.id", ondelete="CASCADE"),
-        nullable=False
+        ForeignKey("inspections.id", ondelete="CASCADE", use_alter=True),
+        nullable=True
+    )
+    session_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("inspection_sessions.id", ondelete="CASCADE", use_alter=True),
+        nullable=True,
+        index=True
     )
     format: Mapped[str] = mapped_column(String(20), nullable=False) # pdf, docx, csv
     object_key: Mapped[str] = mapped_column(String(500), nullable=False)
@@ -24,3 +30,4 @@ class ReportMetadata(Base, TimestampMixin):
     sha256_hash: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
 
     inspection = relationship("Inspection")
+    session = relationship("InspectionSession", back_populates="reports")

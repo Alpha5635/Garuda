@@ -15,8 +15,14 @@ class AuditChain(Base, TimestampMixin):
     )
     inspection_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("inspections.id", ondelete="CASCADE"),
+        ForeignKey("inspections.id", ondelete="CASCADE", use_alter=True),
         nullable=True
+    )
+    session_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("inspection_sessions.id", ondelete="CASCADE", use_alter=True),
+        nullable=True,
+        index=True
     )
     actor_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
@@ -36,4 +42,5 @@ class AuditChain(Base, TimestampMixin):
     current_hash: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
 
     inspection = relationship("Inspection")
+    session = relationship("InspectionSession", back_populates="audit_events")
     actor = relationship("User")

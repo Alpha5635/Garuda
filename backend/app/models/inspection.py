@@ -42,9 +42,25 @@ class Inspection(Base, TimestampMixin):
     district: Mapped[str | None] = mapped_column(String(100), nullable=True)
     product_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     brand_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    session_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("inspection_sessions.id", ondelete="SET NULL", use_alter=True),
+        nullable=True,
+        index=True
+    )
+    detection_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("product_detections.id", ondelete="SET NULL", use_alter=True),
+        nullable=True,
+        index=True
+    )
+    idempotency_key: Mapped[str | None] = mapped_column(String(100), unique=True, index=True, nullable=True)
+    client_inspection_id: Mapped[str | None] = mapped_column(String(100), index=True, nullable=True)
     metadata_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     officer = relationship("User", back_populates="inspections")
     organisation = relationship("Organisation", back_populates="inspections")
+    session = relationship("InspectionSession", back_populates="inspections")
+    detection = relationship("ProductDetection", back_populates="inspection")
     images = relationship("Image", back_populates="inspection", cascade="all, delete-orphan")
     jobs = relationship("ProcessingJob", back_populates="inspection", cascade="all, delete-orphan")
